@@ -111,6 +111,31 @@ jobs:
           annotations: ${{ inputs.set-meta-annotations && steps.meta.outputs.annotations || '' }}
           github-token: ${{ secrets.github-token || github.token }}
       -
+        name: Get attestations digest
+        id: attest
+        uses: actions/github-script@v7
+        env:
+          INPUT_TAGS: ${{ steps.meta.outputs.tags }}
+        with:
+          script: |
+            function getInputList(name) {
+              return core.getInput(name) ? core.getInput(name).split(/[\r?\n,]+/).filter(x => x !== '') : [];
+            }
+            await core.group(`Get attestations digest`, async () => {
+              await exec.getExecOutput('docker', ['buildx', 'imagetools', 'inspect', getInputList('tags')[0], '--format', '{{json .Manifest}}'], {
+                ignoreReturnCode: true,
+                silent: true
+              }).then(res => {
+                if (res.stderr.length > 0 && res.exitCode != 0) {
+                  throw new Error(res.stderr);
+                }
+                const dt = JSON.parse(res.stdout.trim());
+                const attestationDigests = dt.manifests.filter(m => m.annotations && m.annotations['vnd.docker.reference.type'] === 'attestation-manifest').map(m => m.digest);
+                core.info(JSON.stringify(attestationDigests, null, 2));
+                core.setOutput('digests', attestationDigests.join('\n'));
+              });
+            });
+      -
         name: Install cosign
         if: ${{ inputs.push }}
         uses: sigstore/cosign-installer@v3
