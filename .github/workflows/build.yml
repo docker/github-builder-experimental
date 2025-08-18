@@ -55,6 +55,10 @@ on:
         type: string
         description: "List of build-time variables"
         required: false
+      build-platforms:
+        type: string
+        description: "List of target platforms to build"
+        required: false
     secrets:
       login-password:
         description: "Password or personal access token used to log against the Docker registry"
@@ -97,6 +101,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           build-args: ${{ inputs.build-args }}
+          platforms: ${{ inputs.build-platforms }}
           tags: ${{ steps.meta.outputs.tags }}
           push: ${{ inputs.push }}
           sbom: true
