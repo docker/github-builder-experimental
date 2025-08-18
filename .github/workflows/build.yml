@@ -51,6 +51,10 @@ on:
         description: "Specifies whether the given registry is ECR (auto, true or false)"
         default: 'auto'
         required: false
+      build-args:
+        type: string
+        description: "List of build-time variables"
+        required: false
     secrets:
       login-password:
         description: "Password or personal access token used to log against the Docker registry"
@@ -92,6 +96,7 @@ jobs:
         name: Build
         uses: docker/build-push-action@v6
         with:
+          build-args: ${{ inputs.build-args }}
           tags: ${{ steps.meta.outputs.tags }}
           push: ${{ inputs.push }}
           sbom: true
