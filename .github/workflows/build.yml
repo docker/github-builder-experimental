@@ -73,6 +73,7 @@ jobs:
     permissions:
       contents: read
       packages: write # needed for pushing the images to GitHub Packages
+      id-token: write # needed for signing the images with GitHub OIDC Token
     steps:
       -
         name: Set up Docker Buildx
@@ -98,6 +99,7 @@ jobs:
           annotations: ${{ inputs.meta-annotations }}
       -
         name: Build
+        id: build
         uses: docker/build-push-action@v6
         with:
           build-args: ${{ inputs.build-args }}
@@ -108,3 +110,19 @@ jobs:
           labels: ${{ inputs.set-meta-labels && steps.meta.outputs.labels || '' }}
           annotations: ${{ inputs.set-meta-annotations && steps.meta.outputs.annotations || '' }}
           github-token: ${{ secrets.github-token || github.token }}
+      -
+        name: Install cosign
+        if: ${{ inputs.push }}
+        uses: sigstore/cosign-installer@v3
+      -
+        name: Sign with GitHub OIDC Token
+        if: ${{ inputs.push }}
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          images=""
+          for tag in ${TAGS}; do
+            images+="${tag}@${DIGEST} "
+          done
+          cosign sign --yes ${images}
