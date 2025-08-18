@@ -105,7 +105,7 @@ jobs:
           build-args: ${{ inputs.build-args }}
           platforms: ${{ inputs.build-platforms }}
           tags: ${{ steps.meta.outputs.tags }}
-          push: ${{ inputs.push }}
+          outputs: type=image,oci-artifact=true,push=${{ inputs.push }}
           sbom: true
           labels: ${{ inputs.set-meta-labels && steps.meta.outputs.labels || '' }}
           annotations: ${{ inputs.set-meta-annotations && steps.meta.outputs.annotations || '' }}
