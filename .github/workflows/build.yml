@@ -80,6 +80,19 @@ jobs:
       id-token: write # needed for signing the images with GitHub OIDC Token
     steps:
       -
+        name: Validate
+        uses: actions/github-script@v7
+        env:
+          INPUT_META-IMAGE: ${{ inputs.meta-image }}
+        with:
+          script: |
+            function getInputList(name) {
+              return core.getInput(name) ? core.getInput(name).split(/[\r?\n,]+/).filter(x => x !== '') : [];
+            }
+            if (getInputList('meta-image').length > 1) {
+              throw new Error('Only one meta-image is allowed');
+            }
+      -
         name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       -
@@ -108,8 +121,7 @@ jobs:
         with:
           build-args: ${{ inputs.build-args }}
           platforms: ${{ inputs.build-platforms }}
-          tags: ${{ steps.meta.outputs.tags }}
-          outputs: type=image,oci-artifact=true,push=${{ inputs.push }}
+          outputs: type=image,"name=${{ inputs.meta-image }}",oci-artifact=true,push-by-digest=true,name-canonical=true,push=${{ inputs.push }}
           sbom: ${{ inputs.build-sbom }}
           labels: ${{ inputs.set-meta-labels && steps.meta.outputs.labels || '' }}
           annotations: ${{ inputs.set-meta-annotations && steps.meta.outputs.annotations || '' }}
@@ -198,3 +210,29 @@ jobs:
                 });
               }
             }
+      -
+        name: Create manifest
+        if: ${{ inputs.push }}
+        uses: actions/github-script@v7
+        env:
+          INPUT_TAGS: ${{ steps.meta.outputs.tags }}
+          INPUT_IMAGE-DIGEST: ${{ steps.build.outputs.digest }}
+        with:
+          script: |
+            function getInputList(name) {
+              return core.getInput(name) ? core.getInput(name).split(/[\r?\n,]+/).filter(x => x !== '') : [];
+            }
+            
+            let createArgs = ['buildx', 'imagetools', 'create'];
+            for (const tag of getInputList('tags')) {
+              createArgs.push('-t', tag);
+            }
+            createArgs.push(core.getInput('image-digest'));
+            
+            await exec.getExecOutput('docker', createArgs, {
+              ignoreReturnCode: true
+            }).then(res => {
+              if (res.stderr.length > 0 && res.exitCode != 0) {
+                throw new Error(res.stderr);
+              }
+            });
