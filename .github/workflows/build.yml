@@ -183,13 +183,15 @@ jobs:
             const images = [];
             for (const tag of tags) {
               for (const digest of digests) {
-                images.push(`${tag}@${digest}`);
+                await core.group(`Verifying ${tag}@${digest}`, async () => {
+                  await exec.getExecOutput('cosign', ['-d', 'verify', '--certificate-identity-regexp', `^https://github.com/docker/github-builder-experimental/.github/workflows/build.yml.*$`, '--certificate-oidc-issuer', 'https://token.actions.githubusercontent.com', `${tag}@${digest}`], {
+                    ignoreReturnCode: true
+                  }).then(res => {
+                    if (res.stderr.length > 0 && res.exitCode != 0) {
+                      core.warning(`Verification failed for ${tag}@${digest}: ${res.stderr}`);
+                    }
+                  });
+                });
               }
             }
-            await exec.getExecOutput('cosign', ['-d', 'verify', '--certificate-identity-regexp', `^https://github.com/docker/github-builder-experimental/.github/workflows/build.yml.*$`, '--certificate-oidc-issuer', 'https://token.actions.githubusercontent.com', ...images], {
-              ignoreReturnCode: true
-            }).then(res => {
-              if (res.stderr.length > 0 && res.exitCode != 0) {
-                core.warning(`Verification failed: ${res.stderr}`);
-              }
-            });
+
