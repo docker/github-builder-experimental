@@ -3,11 +3,6 @@ name: build
 on:
   workflow_call:
     inputs:
-      push:
-        type: boolean
-        description: "Push image to registry"
-        required: false
-        default: false
       set-meta-annotations:
         type: boolean
         description: "Set metadata-action annotations"
@@ -55,6 +50,11 @@ on:
         type: string
         description: "List of build-time variables"
         required: false
+      build-output:
+        type: string
+        description: "Build outout destination (one of cacheonly, registry)"
+        default: 'cacheonly'
+        required: false
       build-platforms:
         type: string
         description: "List of target platforms to build"
@@ -80,14 +80,29 @@ jobs:
       id-token: write # needed for signing the images with GitHub OIDC Token
     steps:
       -
-        name: Validate
+        name: Prepare
+        id: prepare
         uses: actions/github-script@v7
         env:
           INPUT_META-IMAGE: ${{ inputs.meta-image }}
+          INPUT_BUILD-OUTPUT: ${{ inputs.build-output }}
         with:
           script: |
-            if (core.getMultilineInput('meta-image').length > 1) {
-              throw new Error('Only one meta-image is allowed');
+            const metaImage = core.getMultilineInput('meta-image');
+            const buildOutput = core.getInput('build-output');
+            
+            if (core.getMultilineInput('meta-image').length != 1) {
+              core.setFailed('Only one meta-image is allowed');
+            }
+            switch (buildOutput) {
+              case 'cacheonly':
+                core.setOutput('output', 'type=cacheonly');
+                break;
+              case 'registry':
+                core.setOutput('output', `type=registry,"name=${metaImage[0]}",oci-artifact=true,push-by-digest=true,name-canonical=true`);
+                break;
+              default:
+                core.setFailed(`Invalid build-output: ${buildOutput}`);
             }
       -
         name: Set up Docker Buildx
@@ -95,7 +110,6 @@ jobs:
       -
         name: Login to registry
         uses: crazy-max/docker-login-action@dockerhub-oidc
-        if: ${{ inputs.push }}
         with:
           registry: ${{ inputs.login-registry }}
           username: ${{ inputs.login-username }}
@@ -118,7 +132,7 @@ jobs:
         with:
           build-args: ${{ inputs.build-args }}
           platforms: ${{ inputs.build-platforms }}
-          outputs: type=image,"name=${{ inputs.meta-image }}",oci-artifact=true,push-by-digest=true,name-canonical=true,push=${{ inputs.push }}
+          outputs: ${{ steps.prepare.outputs.output }}
           sbom: ${{ inputs.build-sbom }}
           labels: ${{ inputs.set-meta-labels && steps.meta.outputs.labels || '' }}
           annotations: ${{ inputs.set-meta-annotations && steps.meta.outputs.annotations || '' }}
@@ -126,6 +140,7 @@ jobs:
       -
         name: Get attestations manifest digest
         id: attest
+        if: ${{ inputs.build-output == 'registry' }}
         uses: actions/github-script@v7
         env:
           INPUT_IMAGE-NAME: ${{ inputs.meta-image }}
@@ -150,11 +165,10 @@ jobs:
             });
       -
         name: Install cosign
-        if: ${{ inputs.push }}
         uses: sigstore/cosign-installer@v3
       -
         name: Sign with GitHub OIDC Token
-        if: ${{ inputs.push }}
+        if: ${{ inputs.build-output != 'cacheonly' }}
         uses: actions/github-script@v7
         env:
           INPUT_TAGS: ${{ steps.meta.outputs.tags }}
@@ -179,7 +193,7 @@ jobs:
             });
       -
         name: Verify signatures
-        if: ${{ inputs.push }}
+        if: ${{ inputs.build-output != 'cacheonly' }}
         uses: actions/github-script@v7
         env:
           INPUT_IMAGE-NAME: ${{ inputs.meta-image }}
@@ -203,7 +217,7 @@ jobs:
             }
       -
         name: Create manifest
-        if: ${{ inputs.push }}
+        if: ${{ inputs.build-output == 'registry' }}
         uses: actions/github-script@v7
         env:
           INPUT_TAGS: ${{ steps.meta.outputs.tags }}
