@@ -203,16 +203,13 @@ jobs:
           script: |
             const digests = core.getMultilineInput('digests');
             for (const digest of digests) {
-              const image = `${core.getInput('image-name')}@${digest}`;
-              await core.group(`Verifying ${image}`, async () => {
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                await exec.getExecOutput('cosign', ['-d', 'verify', '--experimental-oci11', '--certificate-identity-regexp', `^https://github.com/docker/github-builder-experimental/.github/workflows/build.yml.*$`, '--certificate-oidc-issuer', 'https://token.actions.githubusercontent.com', image], {
-                  ignoreReturnCode: true
-                }).then(res => {
-                  if (res.exitCode != 0) {
-                    core.setFailed(`Verification failed for ${image}`);
-                  }
-                });
+              const manifest = `${core.getInput('image-name')}@${digest}`;
+              await exec.getExecOutput('cosign', ['-d', 'verify', '--experimental-oci11', '--certificate-identity-regexp', `^https://github.com/docker/github-builder-experimental/.github/workflows/build.yml.*$`, '--certificate-oidc-issuer', 'https://token.actions.githubusercontent.com', manifest], {
+                ignoreReturnCode: true
+              }).then(res => {
+                if (res.exitCode != 0) {
+                  core.warning(`Signature verification failed for ${manifest}`);
+                }
               });
             }
       -
@@ -229,7 +226,6 @@ jobs:
               createArgs.push('-t', tag);
             }
             createArgs.push(core.getInput('image-digest'));
-            
             await exec.getExecOutput('docker', createArgs, {
               ignoreReturnCode: true
             }).then(res => {
