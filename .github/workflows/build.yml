@@ -33,19 +33,6 @@ on:
         type: string
         description: "List of custom annotations"
         required: false
-      login-registry:
-        type: string
-        description: "Server address of Docker registry. If not set then will default to Docker Hub"
-        required: false
-      login-username:
-        type: string
-        description: "Username used to log against the Docker registry"
-        required: false
-      login-ecr:
-        type: string
-        description: "Specifies whether the given registry is ECR (auto, true or false)"
-        default: 'auto'
-        required: false
       build-args:
         type: string
         description: "List of build-time variables"
@@ -64,8 +51,8 @@ on:
         description: "Generate SBOM attestation for the build (shorthand for --attest=type=sbom)"
         required: false
     secrets:
-      login-password:
-        description: "Password or personal access token used to log against the Docker registry"
+      registry-auths:
+        description: "Registry authentication details as YAML objects"
         required: false
       github-token:
         description: "GitHub Token used to authenticate against a repository for Git context"
@@ -123,12 +110,9 @@ jobs:
       -
         name: Login to registry
         if: ${{ inputs.build-output == 'registry' }}
-        uses: crazy-max/docker-login-action@dockerhub-oidc
+        uses: crazy-max/docker-login-action@multi-and-dockerhub-oidc
         with:
-          registry: ${{ inputs.login-registry }}
-          username: ${{ inputs.login-username }}
-          password: ${{ secrets.login-password }}
-          ecr: ${{ inputs.login-ecr }}
+          logins: ${{ secrets.registry-auths }}
       -
         name: Docker meta
         id: meta
