@@ -110,9 +110,10 @@ jobs:
       -
         name: Login to registry
         if: ${{ inputs.build-output == 'registry' }}
-        uses: crazy-max/docker-login-action@multi-and-dockerhub-oidc
+        # TODO: switch to docker/login-action when OIDC is supported
+        uses: crazy-max/docker-login-action@dockerhub-oidc
         with:
-          logins: ${{ secrets.registry-auths }}
+          registry-auth: ${{ secrets.registry-auths }}
       -
         name: Docker meta
         id: meta
