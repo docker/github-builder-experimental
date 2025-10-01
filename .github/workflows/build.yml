@@ -139,6 +139,11 @@ jobs:
           annotations: ${{ inputs.set-meta-annotations && steps.meta.outputs.annotations || '' }}
           github-token: ${{ secrets.github-token || github.token }}
       -
+        name: List output
+        if: ${{ inputs.build-output == 'local' }}
+        run: |
+          tree -nh ${{ env.LOCAL_OUTPUT_DIR }}
+      -
         name: Get attestations manifest digest
         id: attest
         if: ${{ inputs.build-output == 'registry' }}
