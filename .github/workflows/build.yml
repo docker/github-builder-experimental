@@ -172,28 +172,28 @@ jobs:
               core.info(JSON.stringify(attestationDigests, null, 2));
               core.setOutput('digests', attestationDigests.join('\n'));
             });
+#      -
+#        name: Install cosign
+#        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
       -
-        name: Install cosign
-        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
-#      -
-#        name: Checkout cosign
-#        uses: actions/checkout@v5
-#        with:
-#          repository: crazy-max/cosign
-#          ref: 2.6.0
-#          path: cosign-tmp
-#      -
-#        name: Set up Go for cosign
-#        uses: actions/setup-go@v6
-#        with:
-#          go-version: "1.25.1" # https://github.com/sigstore/cosign/blob/2ec2734e8407ea90ea36103a882b3be2195567eb/Dockerfile#L18
-#          cache-dependency-path: cosign-tmp/go.sum
-#      -
-#        name: Build and install cosign
-#        working-directory: cosign-tmp
-#        run: |
-#          make install
-#          cosign version
+        name: Checkout cosign
+        uses: actions/checkout@v5
+        with:
+          repository: crazy-max/cosign
+          ref: 2.6.0-debug-oci-write
+          path: cosign-tmp
+      -
+        name: Set up Go for cosign
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.1" # https://github.com/sigstore/cosign/blob/2ec2734e8407ea90ea36103a882b3be2195567eb/Dockerfile#L18
+          cache-dependency-path: cosign-tmp/go.sum
+      -
+        name: Build and install cosign
+        working-directory: cosign-tmp
+        run: |
+          make install
+          cosign version
       -
         name: Sign attestation manifest (registry)
         if: ${{ inputs.build-output == 'registry' }}
