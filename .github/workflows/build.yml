@@ -173,8 +173,16 @@ jobs:
               core.setOutput('digests', attestationDigests.join('\n'));
             });
       -
-        name: Install cosign
-        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+        name: Set up Go for cosign
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.1" # https://github.com/sigstore/cosign/blob/2ec2734e8407ea90ea36103a882b3be2195567eb/Dockerfile#L18
+      -
+        name: Build and install cosign
+        run: |
+          cd /tmp
+          GOBIN=/usr/local/bin go install github.com/sigstore/cosign/v2/cmd/cosign@v2.6.0
+          cosign version
       -
         name: Sign attestation manifest (registry)
         if: ${{ inputs.build-output == 'registry' }}
