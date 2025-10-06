@@ -79,24 +79,9 @@ jobs:
           INPUT_BUILD-OUTPUT: ${{ inputs.build-output }}
         with:
           script: |
-            const { randomUUID } = require('crypto');
-            const fs = require('fs');
-            const os = require('os');
-            const path = require('path');
-            
             const localOutputDir = core.getInput('local-output-dir');
             const metaImage = core.getMultilineInput('meta-image');
             const buildOutput = core.getInput('build-output');
-            
-            if (process.env.GITHUB_EVENT_PATH && fs.existsSync(process.env.GITHUB_EVENT_PATH)) {
-              const githubEvent = { github_event: JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')) };
-              const githubEventFile = path.join(os.tmpdir(), `github_event_${randomUUID()}.json`);
-              fs.writeFileSync(githubEventFile, JSON.stringify(githubEvent, null, 2));
-              core.setOutput('github-event-file', githubEventFile);
-            } else {
-              core.setFailed('GitHub event file not found');
-              return;
-            }
             
             switch (buildOutput) {
               case 'cacheonly':
@@ -120,11 +105,10 @@ jobs:
         name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
-          version: https://github.com/docker/buildx.git#refs/pull/3452/merge
+          version: https://github.com/docker/buildx.git#refs/pull/3453/merge
           buildkitd-flags: --debug
           driver-opts: |
             image=moby/buildkit:latest
-            mount.${{ steps.prepare.outputs.github-event-file }}=/etc/buildkit/provenance.d/github_event.json
       -
         name: Login to registry
         if: ${{ inputs.build-output == 'registry' }}
