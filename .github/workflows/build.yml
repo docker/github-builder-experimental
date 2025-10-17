@@ -246,11 +246,14 @@ jobs:
             }
             
             for (const attestation of attestations) {
+              const afn = attestation.replace(/\.json$/, "");
               const res = await exec.getExecOutput('cosign', [
-                '-d', 'sign-blob', '--yes',
+                '-d', 'attest-blob', '--yes',
                 '--oidc-provider', 'github-actions',
                 '--oidc-issuer', 'https://token.actions.githubusercontent.com',
-                '--bundle', `${attestation}.cosign.bundle`,
+                '--predicate', attestation,
+                '--bundle', `${afn}.sigstore.json`,
+                '--output-file', `${afn}.signed.json`,
                 attestation
               ], {
                 ignoreReturnCode: true
@@ -317,11 +320,12 @@ jobs:
             }
             
             for (const attestation of attestations) {
+              const afn = attestation.replace(/\.json$/, "");
               const res = await exec.getExecOutput('cosign', [
-                '-d', 'verify-blob',
+                '-d', 'verify-blob-attestation',
                 '--certificate-identity-regexp', `^https://github.com/docker/github-builder-experimental/.github/workflows/build.yml.*$`,
                 '--certificate-oidc-issuer', 'https://token.actions.githubusercontent.com',
-                '--bundle', `${attestation}.cosign.bundle`,
+                '--bundle', `${afn}.sigstore.json`,
                 attestation
               ], {
                 ignoreReturnCode: true
