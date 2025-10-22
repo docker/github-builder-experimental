@@ -68,6 +68,7 @@ jobs:
       contents: read
       packages: write # needed for pushing the images to GitHub Packages
       id-token: write # needed for signing the images with GitHub OIDC Token
+      attestations: write # needed for signing the local artifacts
     steps:
       -
         name: Prepare
@@ -197,7 +198,7 @@ jobs:
               core.setOutput('digests', attestationDigests.join('\n'));
             });
       -
-        name: Signing (registry)
+        name: Signing attestations (registry)
         if: ${{ inputs.build-output == 'registry' }}
         uses: actions/github-script@v7
         env:
@@ -228,37 +229,23 @@ jobs:
               }
             });
       -
-        name: Signing (local)
+        name: Signing artifacts amd64 (local)
         if: ${{ inputs.build-output == 'local' }}
-        uses: actions/github-script@v7
-        env:
-          INPUT_LOCAL-OUTPUT-DIR: ${{ env.LOCAL_OUTPUT_DIR }}
-          COSIGN_EXPERIMENTAL: 1
+        uses: actions/attest@v2
+        id: attest_amd64
         with:
-          script: |
-            const fs = require('fs');
-            const localOutputDir = core.getInput('local-output-dir');
-            
-            const platformFolders = fs.readdirSync(localOutputDir, { withFileTypes: true }).filter(dirent => dirent.isDirectory()).map(dirent => dirent.name);
-            for (const platformFolder of platformFolders) {
-              const baseDir = `${localOutputDir}/${platformFolder}`;
-              const res = await exec.getExecOutput('cosign', [
-                '-d', 'attest-blob', '--yes',
-                '--oidc-provider', 'github-actions',
-                '--oidc-issuer', 'https://token.actions.githubusercontent.com',
-                '--new-bundle-format',
-                '--predicate', `${baseDir}/provenance.json`,
-                '--type', 'https://slsa.dev/provenance/v1',
-                '--bundle', `${baseDir}/provenance.sigstore.json`,
-                `${baseDir}/provenance.json`
-              ], {
-                ignoreReturnCode: true
-              });
-              if (res.stderr.length > 0 && res.exitCode != 0) {
-                throw new Error(res.stderr);
-              }
-              fs.writeFileSync(`${baseDir}/provenance.sigstore.json`, JSON.stringify(JSON.parse(fs.readFileSync(`${baseDir}/provenance.sigstore.json`, 'utf8')), null, 2));
-            }
+          subject-path: "${{ env.LOCAL_OUTPUT_DIR }}/linux_amd64/**/*"
+          predicate-type: "https://slsa.dev/provenance/v1"
+          predicate-path: "${{ env.LOCAL_OUTPUT_DIR }}/linux_amd64/provenance.json"
+      -
+        name: Signing artifacts arm64 (local)
+        if: ${{ inputs.build-output == 'local' }}
+        uses: actions/attest@v2
+        id: attest_arm64
+        with:
+          subject-path: "${{ env.LOCAL_OUTPUT_DIR }}/linux_arm64/**/*"
+          predicate-type: "https://slsa.dev/provenance/v1"
+          predicate-path: "${{ env.LOCAL_OUTPUT_DIR }}/linux_arm64/provenance.json"
       -
         name: Verify signatures (registry)
         if: ${{ inputs.build-output == 'registry' }}
@@ -304,16 +291,21 @@ jobs:
         uses: actions/github-script@v7
         env:
           INPUT_LOCAL-OUTPUT-DIR: ${{ env.LOCAL_OUTPUT_DIR }}
+          INPUT_BUNDLE-PATH-AMD64: ${{ steps.attest_amd64.outputs.bundle-path }}
+          INPUT_BUNDLE-PATH-ARM64: ${{ steps.attest_arm64.outputs.bundle-path }}
           COSIGN_EXPERIMENTAL: 1
         with:
           script: |
             const fs = require('fs');
-            const localOutputDir = core.getInput('local-output-dir');
-            const signArtifacts = core.getMultilineInput('sign-artifacts');
+            const inpLocalOutputDir = core.getInput('local-output-dir');
+            const inpBundlePathAmd64 = core.getInput('bundle-path-amd64');
+            const inpBundlePathArm64 = core.getInput('bundle-path-arm64');
+            fs.copyFileSync(inpBundlePathAmd64,  `${inpLocalOutputDir}/linux_amd64/provenance.sigstore.json`);
+            fs.copyFileSync(inpBundlePathArm64,  `${inpLocalOutputDir}/linux_arm64/provenance.sigstore.json`);
             
-            const platformFolders = fs.readdirSync(localOutputDir, { withFileTypes: true }).filter(dirent => dirent.isDirectory()).map(dirent => dirent.name);
+            const platformFolders = fs.readdirSync(inpLocalOutputDir, { withFileTypes: true }).filter(dirent => dirent.isDirectory()).map(dirent => dirent.name);
             for (const platformFolder of platformFolders) {
-              const baseDir = `${localOutputDir}/${platformFolder}`;
+              const baseDir = `${inpLocalOutputDir}/${platformFolder}`;
               const res = await exec.getExecOutput('cosign', [
                 '-d', 'verify-blob-attestation',
                 '--certificate-identity-regexp', `^https://github.com/docker/github-builder-experimental/.github/workflows/build.yml.*$`,
