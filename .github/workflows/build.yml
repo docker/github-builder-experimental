@@ -220,6 +220,7 @@ jobs:
               '--oidc-issuer', 'https://token.actions.githubusercontent.com',
               '--registry-referrers-mode', 'oci-1-1',
               '--annotations', `vnd.docker.reference.origin=docker.io/github-builder/${context.repo.owner}/${context.repo.repo}`,
+              '--tlog-upload=false',
               ...images
             ], {
               ignoreReturnCode: true
