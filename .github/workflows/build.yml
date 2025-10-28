@@ -154,7 +154,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: crazy-max/cosign
-          ref: 2.6.0-fix-oci-manifest
+          ref: 3.0.2-fix-oci-manifest
           path: cosign-tmp
       -
         name: Set up Go for cosign
@@ -220,7 +220,8 @@ jobs:
               '--oidc-issuer', 'https://token.actions.githubusercontent.com',
               '--registry-referrers-mode', 'oci-1-1',
               '--annotations', `vnd.docker.reference.origin=docker.io/github-builder/${context.repo.owner}/${context.repo.repo}`,
-              '--tlog-upload=false',
+              '--new-bundle-format', 'true',
+              '--use-signing-config', 'true',
               ...images
             ], {
               ignoreReturnCode: true
