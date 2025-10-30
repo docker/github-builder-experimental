@@ -150,28 +150,6 @@ jobs:
         if: ${{ inputs.build-output == 'local' }}
         run: |
           tree -nh ${{ env.LOCAL_OUTPUT_DIR }}
-#      -
-#        name: Install cosign
-#        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
-      -
-        name: Checkout cosign
-        uses: actions/checkout@v5
-        with:
-          repository: crazy-max/cosign
-          ref: 3.0.2-fix-oci-manifest
-          path: cosign-tmp
-      -
-        name: Set up Go for cosign
-        uses: actions/setup-go@v6
-        with:
-          go-version: "1.25.1" # https://github.com/sigstore/cosign/blob/2ec2734e8407ea90ea36103a882b3be2195567eb/Dockerfile#L18
-          cache-dependency-path: cosign-tmp/go.sum
-      -
-        name: Build and install cosign
-        working-directory: cosign-tmp
-        run: |
-          make install
-          cosign version
       -
         name: Install @docker/actions-toolkit
         uses: actions/github-script@v8
@@ -180,6 +158,20 @@ jobs:
             await exec.exec('npm', ['install', '--prefer-offline', '--no-audit',
               'github:docker/actions-toolkit#signing-blobs'
             ]);
+      -
+        name: Install Cosign
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { Cosign } = require('@docker/actions-toolkit/lib/cosign/cosign');
+            const { Install } = require('@docker/actions-toolkit/lib/cosign/install');
+            
+            const cosignInstall = new Install();
+            const cosignBinPath = await cosignInstall.build('https://github.com/crazy-max/cosign.git#3.0.2-fix-oci-manifest', false, true);
+            await cosignInstall.install(cosignBinPath);
+            
+            const cosign = new Cosign();
+            await cosign.printVersion();
       -
         name: Get attestations manifest digest
         id: attest
@@ -254,32 +246,14 @@ jobs:
             const inpLocalOutputDir = core.getInput('local-output-dir');
             
             const sigstore = new Sigstore();
-            const results = await sigstore.signProvenanceBlobs({
+            const signResults = await sigstore.signProvenanceBlobs({
               localExportDir: inpLocalOutputDir
             });
             
-            // TODO: move verification process to actions-toolkit
-            for (const [provenancePath, signRes] of Object.entries(results)) {
-              const baseDir = path.dirname(provenancePath);
-              for (const subject of signRes.subjects) {
-                const artifactPath = path.join(baseDir, subject.name);
-                await core.group(`Verifying signed artifact ${artifactPath}`, async () => {
-                  const execRes = await exec.getExecOutput('cosign', [
-                    '-d', 'verify-blob-attestation',
-                    '--certificate-identity-regexp', `^https://github.com/docker/github-builder-experimental/.github/workflows/build.yml.*$`,
-                    '--certificate-oidc-issuer', 'https://token.actions.githubusercontent.com',
-                    '--new-bundle-format',
-                    '--bundle', signRes.bundlePath,
-                    artifactPath
-                  ], {
-                    ignoreReturnCode: true
-                  });
-                  if (execRes.stderr.length > 0 && execRes.exitCode != 0) {
-                    throw new Error(execRes.stderr);
-                  }
-                });
-              }
-            }
+            const verifyResults = await sigstore.verifySignedProvenanceBlobs(
+              { certificateIdentityRegexp: `^https://github.com/docker/github-builder-experimental/.github/workflows/build.yml.*$` },
+              signResults
+            );
       -
         name: Verify signatures (registry)
         if: ${{ inputs.build-output == 'registry' }}
