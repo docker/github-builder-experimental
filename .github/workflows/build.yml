@@ -110,7 +110,7 @@ on:
         required: false
 
 env:
-  DOCKER_ACTIONS_TOOLKIT_MODULE: "@docker/actions-toolkit@0.66.0"
+  DOCKER_ACTIONS_TOOLKIT_MODULE: "@docker/actions-toolkit@0.67.0"
   COSIGN_VERSION: "v3.0.2"
   LOCAL_EXPORT_DIR: "/tmp/buildx-output"
 
@@ -120,6 +120,7 @@ jobs:
     permissions:
       contents: read
       id-token: write # needed for signing the images with GitHub OIDC Token
+      packages: write # needed to push images to GitHub Container Registry
     steps:
       -
         name: Docker meta
