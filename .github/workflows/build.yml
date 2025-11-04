@@ -29,9 +29,9 @@ on:
         required: false
         default: true
       # same as docker/metadata-action inputs (minus sep-tags, sep-labels, sep-annotations, bake-target)
-      meta-image:
+      meta-images:
         type: string
-        description: "Image to use as base name for tags"
+        description: "List of images to use as base name for tags"
         required: false
       meta-tags:
         type: string
@@ -84,7 +84,7 @@ on:
         required: false
 
 env:
-  DOCKER_ACTIONS_TOOLKIT_MODULE: "@docker/actions-toolkit@0.65.0"
+  DOCKER_ACTIONS_TOOLKIT_MODULE: "@docker/actions-toolkit@0.66.0"
   COSIGN_VERSION: "v3.0.2"
   LOCAL_EXPORT_DIR: "/tmp/buildx-output"
 
@@ -103,14 +103,14 @@ jobs:
           INPUT_LOCAL-EXPORT-DIR: ${{ env.LOCAL_EXPORT_DIR }}
           INPUT_CACHE: ${{ inputs.cache }}
           INPUT_CACHE-MODE: ${{ inputs.cache-mode }}
-          INPUT_META-IMAGE: ${{ inputs.meta-image }}
+          INPUT_META-IMAGES: ${{ inputs.meta-images }}
           INPUT_BUILD-OUTPUT: ${{ inputs.build-output }}
         with:
           script: |
             const inpLocalExportDir = core.getInput('local-export-dir');
             const inpCache = core.getBooleanInput('cache');
             const inpCacheMode = core.getInput('cache-mode');
-            const inpMetaImage = core.getMultilineInput('meta-image');
+            const inpMetaImages = core.getMultilineInput('meta-images');
             const inpBuildOutput = core.getInput('build-output');
             
             switch (inpBuildOutput) {
@@ -118,12 +118,10 @@ jobs:
                 core.setOutput('output', 'type=cacheonly');
                 break;
               case 'registry':
-                if (inpMetaImage.length == 0) {
-                  core.setFailed('meta-image is required when build-output is registry');
-                } else if (inpMetaImage.length > 1) {
-                  core.setFailed('Only one meta-image is supported');
+                if (inpMetaImages.length == 0) {
+                  core.setFailed('meta-images is required when build-output is registry');
                 }
-                core.setOutput('output', `type=registry,"name=${inpMetaImage[0]}",oci-artifact=true,push-by-digest=true,name-canonical=true`);
+                core.setOutput('output', `type=registry,"name=${inpMetaImages.join(',')}",oci-artifact=true,push-by-digest=true,name-canonical=true`);
                 break;
               case 'local':
                 core.setOutput('output', `type=local,dest=${inpLocalExportDir}`);
@@ -161,7 +159,7 @@ jobs:
         if: ${{ inputs.build-output == 'registry' }}
         uses: docker/metadata-action@v5
         with:
-          images: ${{ inputs.meta-image }}
+          images: ${{ inputs.meta-images }}
           tags: ${{ inputs.meta-tags }}
           flavor: ${{ inputs.meta-flavor }}
           labels: ${{ inputs.meta-labels }}
@@ -213,18 +211,18 @@ jobs:
         if: ${{ inputs.build-output == 'registry' }}
         uses: actions/github-script@v8
         env:
-          INPUT_IMAGE-NAME: ${{ inputs.meta-image }}
+          INPUT_IMAGE-NAMES: ${{ inputs.meta-images }}
           INPUT_IMAGE-DIGEST: ${{ steps.build.outputs.digest }}
         with:
           script: |
             const { Sigstore } = require('@docker/actions-toolkit/lib/sigstore/sigstore');
             
-            const inpImageName = core.getInput('image-name');
+            const inpImageNames = core.getMultilineInput('image-names');
             const inpImageDigest = core.getInput('image-digest');
             
             const sigstore = new Sigstore();
             const signResults = await sigstore.signAttestationManifests({
-              imageName: inpImageName,
+              imageNames: inpImageNames,
               imageDigest: inpImageDigest
             });
             
@@ -258,22 +256,25 @@ jobs:
         if: ${{ inputs.build-output == 'registry' }}
         uses: actions/github-script@v7
         env:
-          INPUT_TAGS: ${{ steps.meta.outputs.tags }}
+          INPUT_IMAGE-NAMES: ${{ inputs.meta-images }}
+          INPUT_TAG-NAMES: ${{ steps.meta.outputs.tag-names }}
           INPUT_IMAGE-DIGEST: ${{ steps.build.outputs.digest }}
         with:
           script: |
-            let createArgs = ['buildx', 'imagetools', 'create'];
-            for (const tag of core.getMultilineInput('tags')) {
-              createArgs.push('-t', tag);
-            }
-            createArgs.push(core.getInput('image-digest'));
-            await exec.getExecOutput('docker', createArgs, {
-              ignoreReturnCode: true
-            }).then(res => {
-              if (res.stderr.length > 0 && res.exitCode != 0) {
-                throw new Error(res.stderr);
+            for (const imageName of core.getMultilineInput('image-names')) {
+              let createArgs = ['buildx', 'imagetools', 'create'];
+              for (const tag of core.getMultilineInput('tag-names')) {
+                createArgs.push('-t', `${imageName}:${tag}`);
               }
-            });
+              createArgs.push(core.getInput('image-digest'));
+              await exec.getExecOutput('docker', createArgs, {
+                ignoreReturnCode: true
+              }).then(res => {
+                if (res.stderr.length > 0 && res.exitCode != 0) {
+                  throw new Error(res.stderr);
+                }
+              });
+            }
       -
         name: List local output
         if: ${{ inputs.build-output == 'local' }}
