@@ -136,7 +136,7 @@ jobs:
       -
         name: Prepare
         id: prepare
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           INPUT_LOCAL-EXPORT-DIR: ${{ env.LOCAL_EXPORT_DIR }}
           INPUT_CACHE: ${{ inputs.cache }}
@@ -310,7 +310,7 @@ jobs:
       -
         name: Create manifest
         if: ${{ inputs.build-output == 'registry' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           INPUT_IMAGE-NAMES: ${{ inputs.meta-images }}
           INPUT_TAG-NAMES: ${{ steps.meta.outputs.tag-names }}
