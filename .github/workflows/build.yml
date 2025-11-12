@@ -3,6 +3,11 @@ name: build
 on:
   workflow_call:
     inputs:
+      output:
+        type: string
+        description: "Build output destination (one of cacheonly, registry, local)"
+        default: 'cacheonly'
+        required: false
       cache:
         type: boolean
         description: "Enable cache to GitHub Actions cache backend"
@@ -71,11 +76,6 @@ on:
         type: string
         description: "List of metadata for an image"
         required: false
-      build-output:
-        type: string
-        description: "Build output destination (one of cacheonly, registry, local)"
-        default: 'cacheonly'
-        required: false
       build-platforms:
         type: string
         description: "List of target platforms to build"
@@ -125,7 +125,7 @@ jobs:
       -
         name: Docker meta
         id: meta
-        if: ${{ inputs.build-output == 'registry' }}
+        if: ${{ inputs.output == 'registry' }}
         uses: docker/metadata-action@v5
         with:
           images: ${{ inputs.meta-images }}
@@ -142,7 +142,7 @@ jobs:
           INPUT_CACHE: ${{ inputs.cache }}
           INPUT_CACHE-MODE: ${{ inputs.cache-mode }}
           INPUT_META-IMAGES: ${{ inputs.meta-images }}
-          INPUT_BUILD-OUTPUT: ${{ inputs.build-output }}
+          INPUT_BUILD-OUTPUT: ${{ inputs.output }}
           INPUT_BUILD-ANNOTATIONS: ${{ inputs.build-annotations }}
           INPUT_SET-META-ANNOTATIONS: ${{ inputs.set-meta-annotations }}
           INPUT_META-ANNOTATIONS: ${{ steps.meta.outputs.annotations }}
@@ -211,7 +211,7 @@ jobs:
           buildkitd-flags: --debug
       -
         name: Login to registry
-        if: ${{ inputs.build-output == 'registry' }}
+        if: ${{ inputs.output == 'registry' }}
         # TODO: switch to docker/login-action when OIDC is supported
         uses: crazy-max/docker-login-action@dockerhub-oidc
         with:
@@ -240,6 +240,7 @@ jobs:
           BUILDKIT_MULTI_PLATFORM: 1
       -
         name: Install @docker/actions-toolkit
+        if: ${{ inputs.output != 'cacheonly' }}
         uses: actions/github-script@v8
         env:
           INPUT_DAT-MODULE: ${{ env.DOCKER_ACTIONS_TOOLKIT_MODULE }}
@@ -248,6 +249,7 @@ jobs:
             await exec.exec('npm', ['install', '--prefer-offline', '--no-audit', core.getInput('dat-module')]);
       -
         name: Install Cosign
+        if: ${{ inputs.output != 'cacheonly' }}
         uses: actions/github-script@v8
         env:
           INPUT_COSIGN-VERSION: ${{ env.COSIGN_VERSION }}
@@ -264,7 +266,7 @@ jobs:
             await cosign.printVersion();
       -
         name: Signing attestation manifests
-        if: ${{ inputs.build-output == 'registry' }}
+        if: ${{ inputs.output == 'registry' }}
         uses: actions/github-script@v8
         env:
           INPUT_IMAGE-NAMES: ${{ inputs.meta-images }}
@@ -288,7 +290,7 @@ jobs:
             );
       -
         name: Signing local artifacts
-        if: ${{ inputs.build-output == 'local' }}
+        if: ${{ inputs.output == 'local' }}
         uses: actions/github-script@v8
         env:
           INPUT_LOCAL-OUTPUT-DIR: ${{ env.LOCAL_EXPORT_DIR }}
@@ -309,7 +311,7 @@ jobs:
             );
       -
         name: Create manifest
-        if: ${{ inputs.build-output == 'registry' }}
+        if: ${{ inputs.output == 'registry' }}
         uses: actions/github-script@v8
         env:
           INPUT_IMAGE-NAMES: ${{ inputs.meta-images }}
@@ -333,12 +335,12 @@ jobs:
             }
       -
         name: List local output
-        if: ${{ inputs.build-output == 'local' }}
+        if: ${{ inputs.output == 'local' }}
         run: |
           tree -nh ${{ env.LOCAL_EXPORT_DIR }}
       -
         name: Upload artifact
-        if: ${{ inputs.build-output == 'local' }}
+        if: ${{ inputs.output == 'local' }}
         uses: actions/upload-artifact@v5
         with:
           name: docker-github-builder-assets

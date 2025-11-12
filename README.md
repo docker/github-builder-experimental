@@ -39,12 +39,12 @@ on:
       id-token: write # for signing attestation manifests with GitHub OIDC Token
       packages: write # needed to push images to GitHub Container Registry
     with:
+      output: ${{ github.event_name != 'pull_request' && 'registry' || 'cacheonly' }}
       meta-images: name/app
       meta-tags: |
         type=ref,event=branch
         type=ref,event=pr
         type=semver,pattern={{version}}
-      build-output: ${{ github.event_name != 'pull_request' && 'registry' || 'cacheonly' }}
       build-platforms: linux/amd64,linux/arm64
     secrets:
       registry-auths: |
