@@ -144,6 +144,18 @@ jobs:
       packages: write # needed to push images to GitHub Container Registry
     steps:
       -
+        name: Environment variables
+        uses: actions/github-script@v8
+        env:
+          INPUT_ENVS: ${{ inputs.envs }}
+        with:
+          script: |
+            for (const env of core.getMultilineInput('envs')) {
+              core.info(env);
+              const [key, value] = env.split('=', 2);
+              core.exportVariable(key, value);
+            }
+      -
         name: Install @docker/actions-toolkit
         uses: actions/github-script@v8
         env:
