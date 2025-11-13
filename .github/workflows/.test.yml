@@ -26,6 +26,7 @@ jobs:
       id-token: write
     with:
       output: ${{ github.event_name != 'pull_request' && 'registry' || 'cacheonly' }}
+      cache: true
       meta-images: |
         public.ecr.aws/q3b5f1u4/test-docker-action
       meta-tags: |
@@ -46,6 +47,8 @@ jobs:
       id-token: write
     with:
       output: ${{ github.event_name != 'pull_request' && 'registry' || 'cacheonly' }}
+      cache: true
+      cache-scope: build-aws
       meta-images: |
         public.ecr.aws/q3b5f1u4/test-docker-action
       meta-tags: |
@@ -230,6 +233,8 @@ jobs:
       context: test
       target: hello-cross
       output: ${{ github.event_name != 'pull_request' && 'registry' || 'cacheonly' }}
+      cache: true
+      cache-scope: bake-aws
       meta-images: |
         public.ecr.aws/q3b5f1u4/test-docker-action
       meta-tags: |
@@ -284,6 +289,7 @@ jobs:
       context: test
       target: hello-cross
       output: ${{ github.event_name != 'pull_request' && 'local' || 'cacheonly' }}
+      cache: true
       artifact-name: bake-output
       bake-sbom: true
 

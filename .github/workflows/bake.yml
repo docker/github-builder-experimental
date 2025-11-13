@@ -32,6 +32,10 @@ on:
         description: "Enable cache to GitHub Actions cache backend"
         required: false
         default: false
+      cache-scope:
+        type: string
+        description: "Which scope cache object belongs to if cache enabled (default is target name)"
+        required: false
       cache-mode:
         type: string
         description: "Cache layers to export if cache enabled (min or max)"
@@ -181,6 +185,7 @@ jobs:
           INPUT_TARGET: ${{ inputs.target }}
           INPUT_OUTPUT: ${{ inputs.output }}
           INPUT_CACHE: ${{ inputs.cache }}
+          INPUT_CACHE-SCOPE: ${{ inputs.cache-scope }}
           INPUT_CACHE-MODE: ${{ inputs.cache-mode }}
           INPUT_META-IMAGES: ${{ inputs.meta-images }}
           INPUT_SET-META-ANNOTATIONS: ${{ inputs.set-meta-annotations }}
@@ -205,6 +210,7 @@ jobs:
             const inpTarget = core.getInput('target');
             const inpOutput = core.getInput('output');
             const inpCache = core.getBooleanInput('cache');
+            const inpCacheScope = core.getInput('cache-scope');
             const inpCacheMode = core.getInput('cache-mode');
             const inpMetaImages = core.getMultilineInput('meta-images');
             const inpSetMetaAnnotations = core.getBooleanInput('set-meta-annotations');
@@ -224,6 +230,29 @@ jobs:
             await core.group(`Set bake source`, async () => {
               core.info(bakeSource);
               core.setOutput('source', bakeSource);
+            });
+            
+            let target;
+            await core.group(`Validating definition`, async () => {
+              const bake = new Bake();
+              const def = await bake.getDefinition({
+                allow: inpBakeAllow,
+                files: inpBakeFiles,
+                overrides: inpBakeSet,
+                sbom: inpBakeSbom,
+                source: bakeSource,
+                targets: [inpTarget],
+                githubToken: inpGitHubToken
+              });
+              if (!def) {
+                throw new Error('Bake definition not set');
+              }
+              const targets = Object.keys(def.target);
+              if (targets.length > 1) {
+                throw new Error(`Only one target can be built at once, found: ${targets.join(', ')}`);
+              }
+              target = targets[0];
+              core.setOutput('target', target);
             });
             
             let bakeFiles = inpBakeFiles;
@@ -266,33 +295,11 @@ jobs:
             await core.group(`Set bake overrides`, async () => {
               bakeOverrides.push('*.attest=type=provenance,mode=max,version=v1', '*.tags=');
               if (inpCache) {
-                bakeOverrides.push(`*.cache-from=type=gha,scope=docker-github-builder`);
-                bakeOverrides.push(`*.cache-to=type=gha,scope=docker-github-builder,mode=${inpCacheMode}`);
+                bakeOverrides.push(`*.cache-from=type=gha,scope=${inpCacheScope || target}`);
+                bakeOverrides.push(`*.cache-to=type=gha,scope=${inpCacheScope || target},mode=${inpCacheMode}`);
               }
               core.info(JSON.stringify(bakeOverrides, null, 2));
               core.setOutput('overrides', bakeOverrides.join(os.EOL));
-            });
-            
-            let def;
-            await core.group(`Validating definition`, async () => {
-              const bake = new Bake();
-              def = await bake.getDefinition({
-                allow: inpBakeAllow,
-                files: bakeFiles,
-                overrides: bakeOverrides,
-                sbom: inpBakeSbom,
-                source: bakeSource,
-                targets: [inpTarget],
-                githubToken: inpGitHubToken
-              });
-              if (!def) {
-                throw new Error('Bake definition not set');
-              }
-              const targets = Object.keys(def.target);
-              if (targets.length > 1) {
-                throw new Error(`Only one target can be built at once, found: ${targets.join(', ')}`);
-              }
-              core.setOutput('target', targets[0]);
             });
       -
         name: Login to registry

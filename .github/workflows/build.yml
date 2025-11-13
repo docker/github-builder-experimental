@@ -18,6 +18,10 @@ on:
         description: "Enable cache to GitHub Actions cache backend"
         required: false
         default: false
+      cache-scope:
+        type: string
+        description: "Which scope cache object belongs to if cache enabled (default is target name if set)"
+        required: false
       cache-mode:
         type: string
         description: "Cache layers to export if cache enabled (min or max)"
@@ -159,6 +163,7 @@ jobs:
         env:
           INPUT_LOCAL-EXPORT-DIR: ${{ env.LOCAL_EXPORT_DIR }}
           INPUT_CACHE: ${{ inputs.cache }}
+          INPUT_CACHE-SCOPE: ${{ inputs.cache-scope }}
           INPUT_CACHE-MODE: ${{ inputs.cache-mode }}
           INPUT_META-IMAGES: ${{ inputs.meta-images }}
           INPUT_BUILD-OUTPUT: ${{ inputs.output }}
@@ -173,6 +178,7 @@ jobs:
           script: |
             const inpLocalExportDir = core.getInput('local-export-dir');
             const inpCache = core.getBooleanInput('cache');
+            const inpCacheScope = core.getInput('cache-scope');
             const inpCacheMode = core.getInput('cache-mode');
             const inpMetaImages = core.getMultilineInput('meta-images');
             const inpBuildOutput = core.getInput('build-output');
@@ -202,8 +208,8 @@ jobs:
             }
             
             if (inpCache) {
-              core.setOutput('cache-from', `type=gha,scope=docker-github-builder`);
-              core.setOutput('cache-to', `type=gha,scope=docker-github-builder,mode=${inpCacheMode}`);
+              core.setOutput('cache-from', `type=gha,scope=${inpCacheScope || inpBuildTarget || 'buildkit'}`);
+              core.setOutput('cache-to', `type=gha,scope=${inpCacheScope || inpBuildTarget || 'buildkit'},mode=${inpCacheMode}`);
             }
             
             if (inpSetMetaAnnotations && inpMetaAnnotations.length > 0) {
