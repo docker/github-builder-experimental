@@ -108,15 +108,30 @@ on:
       github-token:
         description: "GitHub Token used to authenticate against a repository for Git context"
         required: false
+    outputs:
+      cosign-version:
+        description: Cosign version used for verification
+        value: ${{ jobs.build.outputs.cosign-version }}
+      cosign-verify-commands:
+        description: Cosign verify commands
+        value: ${{ jobs.build.outputs.cosign-verify-commands }}
+      artifact-name:
+        description: Name of the uploaded artifact (for local output)
+        value: ${{ jobs.build.outputs.artifact-name }}
 
 env:
   DOCKER_ACTIONS_TOOLKIT_MODULE: "@docker/actions-toolkit@0.67.0"
   COSIGN_VERSION: "v3.0.2"
   LOCAL_EXPORT_DIR: "/tmp/buildx-output"
+  LOCAL_ARTIFACT_NAME: "docker-github-builder-assets"
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      cosign-version: ${{ env.COSIGN_VERSION }}
+      cosign-verify-commands: ${{ steps.signing-attestation-manifests.outputs.verify-commands || steps.signing-local-artifacts.outputs.verify-commands }}
+      artifact-name: ${{ env.LOCAL_ARTIFACT_NAME }}
     permissions:
       contents: read
       id-token: write # needed for signing the images with GitHub OIDC Token
@@ -266,6 +281,7 @@ jobs:
             await cosign.printVersion();
       -
         name: Signing attestation manifests
+        id: signing-attestation-manifests
         if: ${{ inputs.output == 'registry' }}
         uses: actions/github-script@v8
         env:
@@ -288,8 +304,19 @@ jobs:
               { certificateIdentityRegexp: `^https://github.com/docker/github-builder-experimental/.github/workflows/build.yml.*$` },
               signResults
             );
+            
+            await core.group(`Verify commands`, async () => {
+              const verifyCommands = [];
+              for (const [attestationRef, verifyResult] of Object.entries(verifyResults)) {
+                const cmd = `cosign ${verifyResult.cosignArgs.join(' ')} ${attestationRef}`;
+                core.info(cmd);
+                verifyCommands.push(cmd);
+              }
+              core.setOutput('verify-commands', verifyCommands.join('\n'));
+            });
       -
         name: Signing local artifacts
+        id: signing-local-artifacts
         if: ${{ inputs.output == 'local' }}
         uses: actions/github-script@v8
         env:
@@ -309,6 +336,16 @@ jobs:
               { certificateIdentityRegexp: `^https://github.com/docker/github-builder-experimental/.github/workflows/build.yml.*$` },
               signResults
             );
+            
+            await core.group(`Verify commands`, async () => {
+              const verifyCommands = [];
+              for (const [artifactPath, verifyResult] of Object.entries(verifyResults)) {
+                const cmd = `cosign ${verifyResult.cosignArgs.join(' ')} --bundle ${path.relative(inplocalExportDir, verifyResult.bundlePath)} ${path.relative(inplocalExportDir, artifactPath)}`;
+                core.info(cmd);
+                verifyCommands.push(cmd);
+              }
+              core.setOutput('verify-commands', verifyCommands.join('\n'));
+            });
       -
         name: Create manifest
         if: ${{ inputs.output == 'registry' }}
@@ -343,6 +380,6 @@ jobs:
         if: ${{ inputs.output == 'local' }}
         uses: actions/upload-artifact@v5
         with:
-          name: docker-github-builder-assets
+          name: ${{ env.LOCAL_ARTIFACT_NAME }}
           path: ${{ env.LOCAL_EXPORT_DIR }}
           if-no-files-found: error
