@@ -377,10 +377,11 @@ jobs:
         with:
           cosign-release: ${{ needs.bake-local.outputs.cosign-version }}
       -
-        name: Download artifact
+        name: Download artifacts
         uses: actions/download-artifact@v5
         with:
-          name: ${{ needs.bake-local.outputs.artifact-name }}
+          pattern: ${{ needs.bake-local.outputs.artifact-name }}*
+          merge-multiple: true
       -
         name: Verify signatures
         uses: actions/github-script@v8
