@@ -26,10 +26,11 @@ jobs:
       id-token: write
     with:
       output: ${{ github.event_name != 'pull_request' && 'registry' || 'cacheonly' }}
+      cache: true
       meta-images: |
         public.ecr.aws/q3b5f1u4/test-docker-action
       meta-tags: |
-        type=raw,value=ghbuilder-single-${{ github.run_id }}
+        type=raw,value=build-ghbuilder-single-${{ github.run_id }}
       build-file: test/hello.Dockerfile
       build-sbom: true
     secrets:
@@ -46,10 +47,12 @@ jobs:
       id-token: write
     with:
       output: ${{ github.event_name != 'pull_request' && 'registry' || 'cacheonly' }}
+      cache: true
+      cache-scope: build-aws
       meta-images: |
         public.ecr.aws/q3b5f1u4/test-docker-action
       meta-tags: |
-        type=raw,value=ghbuilder-${{ github.run_id }}
+        type=raw,value=build-ghbuilder-${{ github.run_id }}
       build-file: test/hello.Dockerfile
       build-sbom: true
       build-platforms: linux/amd64,linux/arm64
@@ -102,7 +105,7 @@ jobs:
       output: ${{ github.event_name != 'pull_request' && 'registry' || 'cacheonly' }}
       meta-images: ghcr.io/docker/github-builder-test
       meta-tags: |
-        type=raw,value=${{ github.run_id }}
+        type=raw,value=build-${{ github.run_id }}
       build-file: test/hello.Dockerfile
       build-sbom: true
       build-platforms: linux/amd64,linux/arm64
@@ -122,7 +125,7 @@ jobs:
       output: ${{ github.event_name != 'pull_request' && 'registry' || 'cacheonly' }}
       meta-images: registry-1-stage.docker.io/docker/github-builder-test
       meta-tags: |
-        type=raw,value=${{ github.run_id }}
+        type=raw,value=build-${{ github.run_id }}
       build-file: test/hello.Dockerfile
       build-sbom: true
       build-platforms: linux/amd64,linux/arm64
@@ -163,7 +166,7 @@ jobs:
         ghcr.io/docker/github-builder-test
         public.ecr.aws/q3b5f1u4/test-docker-action
       meta-tags: |
-        type=raw,value=${{ github.run_id }},prefix=ghcr-and-aws-
+        type=raw,value=${{ github.run_id }},prefix=build-ghcr-and-aws-
       build-file: test/hello.Dockerfile
       build-sbom: true
       build-platforms: linux/amd64,linux/arm64
@@ -184,6 +187,7 @@ jobs:
       id-token: write
     with:
       output: ${{ github.event_name != 'pull_request' && 'local' || 'cacheonly' }}
+      artifact-name: build-output
       build-file: test/hello.Dockerfile
       build-sbom: true
       build-platforms: linux/amd64,linux/arm64
@@ -210,6 +214,107 @@ jobs:
         env:
           INPUT_COSIGN-VERSION: ${{ needs.build-local.outputs.cosign-version }}
           INPUT_COSIGN-VERIFY-COMMANDS: ${{ needs.build-local.outputs.cosign-verify-commands }}
+        with:
+          script: |
+            const cosignVersion = core.getInput('cosign-version');
+            core.info(`Cosign version used by Docker GitHub Builder: ${cosignVersion}`);
+            const cosignVerifyCommands = core.getMultilineInput('cosign-verify-commands');
+            for (const cmd of cosignVerifyCommands) {
+              await exec.exec(cmd);
+            }
+
+  bake-aws:
+    uses: ./.github/workflows/bake.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    with:
+      context: test
+      target: hello-cross
+      output: ${{ github.event_name != 'pull_request' && 'registry' || 'cacheonly' }}
+      cache: true
+      cache-scope: bake-aws
+      meta-images: |
+        public.ecr.aws/q3b5f1u4/test-docker-action
+      meta-tags: |
+        type=raw,value=bake-ghbuilder-${{ github.run_id }}
+      bake-sbom: true
+    secrets:
+      registry-auths: |
+        - registry: public.ecr.aws
+          username: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  bake-aws-verify:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request' }}
+    needs:
+      - bake-aws
+    steps:
+      -
+        name: Install Cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+        with:
+          cosign-release: ${{ needs.bake-aws.outputs.cosign-version }}
+      -
+        name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: public.ecr.aws
+          username: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      -
+        name: Verify signatures
+        uses: actions/github-script@v8
+        env:
+          INPUT_COSIGN-VERSION: ${{ needs.bake-aws.outputs.cosign-version }}
+          INPUT_COSIGN-VERIFY-COMMANDS: ${{ needs.bake-aws.outputs.cosign-verify-commands }}
+        with:
+          script: |
+            const cosignVersion = core.getInput('cosign-version');
+            core.info(`Cosign version used by Docker GitHub Builder: ${cosignVersion}`);
+            const cosignVerifyCommands = core.getMultilineInput('cosign-verify-commands');
+            for (const cmd of cosignVerifyCommands) {
+              await exec.exec(cmd);
+            }
+
+  bake-local:
+    uses: ./.github/workflows/bake.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    with:
+      context: test
+      target: hello-cross
+      output: ${{ github.event_name != 'pull_request' && 'local' || 'cacheonly' }}
+      cache: true
+      artifact-name: bake-output
+      bake-sbom: true
+
+  bake-local-verify:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request' }}
+    needs:
+      - bake-local
+    steps:
+      -
+        name: Install Cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+        with:
+          cosign-release: ${{ needs.bake-local.outputs.cosign-version }}
+      -
+        name: Download artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ needs.bake-local.outputs.artifact-name }}
+      -
+        name: Verify signatures
+        uses: actions/github-script@v8
+        env:
+          INPUT_COSIGN-VERSION: ${{ needs.bake-local.outputs.cosign-version }}
+          INPUT_COSIGN-VERIFY-COMMANDS: ${{ needs.bake-local.outputs.cosign-verify-commands }}
         with:
           script: |
             const cosignVersion = core.getInput('cosign-version');

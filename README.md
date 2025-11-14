@@ -83,3 +83,70 @@ on:
 ```
 
 You can find the list of available inputs in [`.github/workflows/build.yml`](.github/workflows/build.yml).
+
+## Bake reusable workflow
+
+```yaml
+name: ci
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - 'main'
+    tags:
+      - 'v*'
+  pull_request:
+
+  bake:
+    uses: docker/github-builder-experimental/.github/workflows/bake.yml@main
+    permissions:
+      contents: read
+      id-token: write # for signing attestation manifests with GitHub OIDC Token
+      packages: write # needed to push images to GitHub Container Registry
+    with:
+      output: ${{ github.event_name != 'pull_request' && 'registry' || 'cacheonly' }}
+      meta-images: name/app
+      meta-tags: |
+        type=ref,event=branch
+        type=ref,event=pr
+        type=semver,pattern={{version}}
+    secrets:
+      registry-auths: |
+        - registry: docker.io
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  bake-verify:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request' }}
+    needs:
+      - bake
+    steps:
+      -
+        name: Install Cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+        with:
+          cosign-release: ${{ needs.bake.outputs.cosign-version }}
+      -
+        name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      -
+        name: Verify signatures
+        uses: actions/github-script@v8
+        env:
+          INPUT_COSIGN-VERIFY-COMMANDS: ${{ needs.bake.outputs.cosign-verify-commands }}
+        with:
+          script: |
+            for (const cmd of core.getMultilineInput('cosign-verify-commands')) {
+              await exec.exec(cmd);
+            }
+```
+
+You can find the list of available inputs in [`.github/workflows/bake.yml`](.github/workflows/bake.yml).
