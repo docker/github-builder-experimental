@@ -37,7 +37,7 @@ on:
     permissions:
       contents: read
       id-token: write # for signing attestation manifests with GitHub OIDC Token
-      packages: write # needed to push images to GitHub Container Registry
+      packages: write # only used if pushing to GHCR but needs to be defined as caller must provide permissions ≥ to those used in the reusable workflow
     with:
       output: ${{ github.event_name != 'pull_request' && 'registry' || 'cacheonly' }}
       meta-images: name/app
@@ -105,7 +105,7 @@ on:
     permissions:
       contents: read
       id-token: write # for signing attestation manifests with GitHub OIDC Token
-      packages: write # needed to push images to GitHub Container Registry
+      packages: write # only used if pushing to GHCR but needs to be defined as caller must provide permissions ≥ to those used in the reusable workflow
     with:
       output: ${{ github.event_name != 'pull_request' && 'registry' || 'cacheonly' }}
       meta-images: name/app
