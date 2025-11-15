@@ -173,7 +173,7 @@ jobs:
         uses: actions/github-script@v8
         env:
           INPUT_MATRIX-SIZE-LIMIT: ${{ env.MATRIX_SIZE_LIMIT }}
-          INPUT_RUNS-ON: ${{ inputs.runs-on || 'ubuntu-latest' }}
+          INPUT_RUNS-ON: ${{ inputs.runs-on }}
           INPUT_CONTEXT: ${{ inputs.context }}
           INPUT_TARGET: ${{ inputs.target }}
           INPUT_BAKE-ALLOW: ${{ inputs.bake-allow }}
@@ -236,7 +236,7 @@ jobs:
               } else if (platforms.length === 0) {
                 includes.push({
                   index: 0,
-                  'runs-on': inpRunsOn
+                  'runs-on': inpRunsOn || 'ubuntu-latest'
                 });
               } else {
                 platforms.forEach((platform, index) => {
