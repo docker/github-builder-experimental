@@ -142,8 +142,8 @@ jobs:
       artifact-name: ${{ inputs.artifact-name }}
     permissions:
       contents: read
-      id-token: write # needed for signing the images with GitHub OIDC Token
-      packages: write # needed to push images to GitHub Container Registry
+      id-token: write # for signing attestation manifests with GitHub OIDC Token
+      packages: write # only used if pushing to GHCR but needs to be defined as caller must provide permissions ≥ to those used in the reusable workflow
     steps:
       -
         name: Docker meta
