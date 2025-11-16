@@ -46,7 +46,7 @@ jobs:
           cosign-release: ${{ steps.vars.outputs.cosign-version }}
       -
         name: Login to registry
-        if: ${{ steps.vars.outputs.output-type == 'registry' }}
+        if: ${{ steps.vars.outputs.output-type == 'image' }}
         # TODO: switch to docker/login-action when OIDC is supported
         uses: crazy-max/docker-login-action@dockerhub-oidc
         with:
