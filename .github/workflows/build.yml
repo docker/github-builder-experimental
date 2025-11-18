@@ -385,12 +385,13 @@ jobs:
           provenance: mode=max,version=v1
           pull: ${{ inputs.build-pull }}
           sbom: ${{ inputs.build-sbom }}
+          secret-envs: GIT_AUTH_TOKEN=GIT_AUTH_TOKEN
           shm-size: ${{ inputs.build-shm-size }}
           target: ${{ inputs.build-target }}
           ulimit: ${{ inputs.build-ulimit }}
-          github-token: ${{ secrets.github-token || github.token }}
         env:
           BUILDKIT_MULTI_PLATFORM: 1
+          GIT_AUTH_TOKEN: ${{ secrets.github-token || github.token }}
       -
         name: Install Cosign
         if: ${{ inputs.push }}

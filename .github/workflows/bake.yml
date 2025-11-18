@@ -482,9 +482,9 @@ jobs:
           pull: ${{ inputs.bake-pull }}
           sbom: ${{ inputs.bake-sbom }}
           set: ${{ steps.prepare.outputs.overrides }}
-          github-token: ${{ secrets.github-token || github.token }}
         env:
           BUILDKIT_MULTI_PLATFORM: 1
+          BUILDX_BAKE_GIT_AUTH_TOKEN: ${{ secrets.github-token || github.token }}
       -
         name: Get image digest
         id: get-image-digest
