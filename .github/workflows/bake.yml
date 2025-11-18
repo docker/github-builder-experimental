@@ -185,6 +185,7 @@ jobs:
           script: |
             const os = require('os');
             const { Bake } = require('@docker/actions-toolkit/lib/buildx/bake');
+            const { GitHub } = require('@docker/actions-toolkit/lib/github');
             const { Util } = require('@docker/actions-toolkit/lib/util');
 
             const inpMatrixSizeLimit = parseInt(core.getInput('matrix-size-limit'), 10);
@@ -241,7 +242,7 @@ jobs:
                   includes.push({
                     index: index,
                     platform: platform,
-                    runner: platform.startsWith('linux/arm') ? 'ubuntu-24.04-arm' : 'ubuntu-24.04'
+                    runner: GitHub.isGHES && platform.startsWith('linux/arm') ? 'ubuntu-24.04-arm' : 'ubuntu-24.04'
                   });
                 });
               }
