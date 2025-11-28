@@ -184,6 +184,7 @@ jobs:
             
             const inpBuildPlatforms = Util.getInputList('build-platforms');
             
+            const privateRepo = GitHub.context.payload.repository?.private ?? false;
             await core.group(`Set includes`, async () => {
               let includes = [];
               if (inpBuildPlatforms.length > inpMatrixSizeLimit) {
@@ -198,7 +199,7 @@ jobs:
                   includes.push({
                     index: index,
                     platform: platform,
-                    runner: GitHub.isGHES && platform.startsWith('linux/arm') ? 'ubuntu-24.04-arm' : 'ubuntu-24.04'
+                    runner: (!privateRepo && platform.startsWith('linux/arm')) ? 'ubuntu-24.04-arm' : 'ubuntu-24.04' // FIXME: ubuntu-24.04-arm runner not yet available for private repos
                   });
                 });
               }
