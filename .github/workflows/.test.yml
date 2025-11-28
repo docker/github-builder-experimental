@@ -278,6 +278,22 @@ jobs:
     with:
       builder-outputs: ${{ toJSON(needs.build-local-single.outputs) }}
 
+  build-set-runner:
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    with:
+      runner: amd64
+      output: image
+      push: false
+      meta-images: ghcr.io/docker/github-builder-test
+      meta-tags: |
+        type=raw,value=build-${{ github.run_id }}
+      build-file: test/hello.Dockerfile
+      build-platforms: linux/amd64,linux/arm64
+
   bake-aws-single:
     uses: ./.github/workflows/bake.yml
     permissions:
@@ -441,3 +457,20 @@ jobs:
       - bake-local-single
     with:
       builder-outputs: ${{ toJSON(needs.bake-local-single.outputs) }}
+
+  bake-set-runner:
+    uses: ./.github/workflows/bake.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    with:
+      runner: amd64
+      context: test
+      target: hello-cross
+      output: image
+      push: false
+      meta-images: |
+        public.ecr.aws/q3b5f1u4/test-docker-action
+      meta-tags: |
+        type=raw,value=bake-ghbuilder-${{ github.run_id }}

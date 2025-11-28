@@ -3,6 +3,11 @@ name: bake
 on:
   workflow_call:
     inputs:
+      runner:
+        type: string
+        description: "Linux machine to run build on. Can be one of auto, amd64, arm64 (defaults to auto which selects best-matching runner based on target platform)"
+        required: false
+        default: 'auto'
       context:
         type: string
         description: "Context to build from (defaults to repository root)"
@@ -175,6 +180,7 @@ jobs:
         uses: actions/github-script@v8
         env:
           INPUT_MATRIX-SIZE-LIMIT: ${{ env.MATRIX_SIZE_LIMIT }}
+          INPUT_RUNNER: ${{ inputs.runner }}
           INPUT_CONTEXT: ${{ inputs.context }}
           INPUT_TARGET: ${{ inputs.target }}
           INPUT_BAKE-ALLOW: ${{ inputs.bake-allow }}
@@ -192,6 +198,7 @@ jobs:
 
             const inpMatrixSizeLimit = parseInt(core.getInput('matrix-size-limit'), 10);
             
+            const inpRunner = core.getInput('runner');
             const inpContext = core.getInput('context');
             const inpTarget = core.getInput('target');
             const inpBakeAllow = core.getInput('bake-allow');
@@ -200,6 +207,15 @@ jobs:
             const inpBakeSbom = core.getInput('bake-sbom');
             const inpBakeSet = Util.getInputList('bake-set', {ignoreComma: true, quote: false});
             const inpGitHubToken = core.getInput('github-token');
+            
+            let runner = inpRunner;
+            if (inpRunner === 'amd64') {
+              runner = 'ubuntu-24.04';
+            } else if (inpRunner === 'arm64') {
+              runner = 'ubuntu-24.04-arm';
+            } else if (inpRunner !== 'auto') {
+              throw new Error(`Invalid runner input: ${inpRunner}`);
+            }
 
             const bakeSource = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}.git#${process.env.GITHUB_REF}:${inpContext}`;
             await core.group(`Set bake source`, async () => {
@@ -238,14 +254,14 @@ jobs:
               } else if (platforms.length === 0) {
                 includes.push({
                   index: 0,
-                  runner: 'ubuntu-24.04'
+                  runner: runner === 'auto' ? 'ubuntu-24.04' : runner
                 });
               } else {
                 platforms.forEach((platform, index) => {
                   includes.push({
                     index: index,
                     platform: platform,
-                    runner: (!privateRepo && platform.startsWith('linux/arm')) ? 'ubuntu-24.04-arm' : 'ubuntu-24.04' // FIXME: ubuntu-24.04-arm runner not yet available for private repos
+                    runner: runner === 'auto' ? ((!privateRepo && platform.startsWith('linux/arm')) ? 'ubuntu-24.04-arm' : 'ubuntu-24.04') : runner
                   });
                 });
               }
