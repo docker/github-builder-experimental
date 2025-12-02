@@ -399,7 +399,7 @@ jobs:
       -
         name: Build
         id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           annotations: ${{ steps.prepare.outputs.annotations }}
           build-args: ${{ inputs.build-args }}
@@ -524,7 +524,7 @@ jobs:
       -
         name: Upload artifact
         if: ${{ inputs.output == 'local' }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ inputs.artifact-name }}${{ steps.prepare.outputs.platform-pair-suffix }}
           path: ${{ env.LOCAL_EXPORT_DIR }}
