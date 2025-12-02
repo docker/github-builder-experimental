@@ -19,7 +19,7 @@ jobs:
       -
         name: Extract builder outputs
         id: vars
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_BUILDER-OUTPUTS: ${{ inputs.builder-outputs }}
         with:
@@ -47,8 +47,7 @@ jobs:
       -
         name: Login to registry
         if: ${{ steps.vars.outputs.output-type == 'image' }}
-        # TODO: switch to docker/login-action when OIDC is supported
-        uses: crazy-max/docker-login-action@dockerhub-oidc
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           registry-auth: ${{ secrets.registry-auths }}
       -
@@ -60,7 +59,7 @@ jobs:
           merge-multiple: true
       -
         name: Verify signatures
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_COSIGN-VERIFY-COMMANDS: ${{ steps.vars.outputs.cosign-verify-commands }}
         with:

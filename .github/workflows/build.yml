@@ -168,7 +168,7 @@ jobs:
     steps:
       -
         name: Install @docker/actions-toolkit
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_DAT-MODULE: ${{ env.DOCKER_ACTIONS_TOOLKIT_MODULE }}
         with:
@@ -177,7 +177,7 @@ jobs:
       -
         name: Set includes
         id: set
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_MATRIX-SIZE-LIMIT: ${{ env.MATRIX_SIZE_LIMIT }}
           INPUT_RUNNER: ${{ inputs.runner }}
@@ -258,7 +258,7 @@ jobs:
     steps:
       -
         name: Environment variables
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_ENVS: ${{ inputs.envs }}
         with:
@@ -270,7 +270,7 @@ jobs:
             }
       -
         name: Install @docker/actions-toolkit
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_DAT-MODULE: ${{ env.DOCKER_ACTIONS_TOOLKIT_MODULE }}
         with:
@@ -280,7 +280,7 @@ jobs:
         name: Docker meta
         id: meta
         if: ${{ inputs.output == 'image' }}
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ${{ inputs.meta-images }}
           tags: ${{ inputs.meta-tags }}
@@ -289,13 +289,13 @@ jobs:
           annotations: ${{ inputs.meta-annotations }}
       -
         name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
         if: ${{ inputs.setup-qemu }}
         with:
           image: ${{ inputs.qemu-image }}
       -
         name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
         with:
           version: ${{ env.BUILDX_VERSION }}
           buildkitd-flags: --debug
@@ -303,7 +303,7 @@ jobs:
       -
         name: Prepare
         id: prepare
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_PLATFORM: ${{ matrix.platform }}
           INPUT_LOCAL-EXPORT-DIR: ${{ env.LOCAL_EXPORT_DIR }}
@@ -393,8 +393,7 @@ jobs:
       -
         name: Login to registry
         if: ${{ inputs.push && inputs.output == 'image' }}
-        # TODO: switch to docker/login-action when OIDC is supported
-        uses: crazy-max/docker-login-action@dockerhub-oidc
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           registry-auth: ${{ secrets.registry-auths }}
       -
@@ -424,7 +423,7 @@ jobs:
       -
         name: Install Cosign
         if: ${{ inputs.push }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_COSIGN-VERSION: ${{ env.COSIGN_VERSION }}
         with:
@@ -442,7 +441,7 @@ jobs:
         name: Signing attestation manifests
         id: signing-attestation-manifests
         if: ${{ inputs.push && inputs.output == 'image' }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_IMAGE-NAMES: ${{ inputs.meta-images }}
           INPUT_IMAGE-DIGEST: ${{ steps.build.outputs.digest }}
@@ -489,7 +488,7 @@ jobs:
         name: Signing local artifacts
         id: signing-local-artifacts
         if: ${{ inputs.push && inputs.output == 'local' }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_LOCAL-OUTPUT-DIR: ${{ env.LOCAL_EXPORT_DIR }}
         with:
@@ -533,7 +532,7 @@ jobs:
       -
         name: Set result output
         id: result
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_INDEX: ${{ matrix.index }}
           INPUT_VERIFY-COMMANDS: ${{ steps.signing-attestation-manifests.outputs.verify-commands || steps.signing-local-artifacts.outputs.verify-commands }}
@@ -570,7 +569,7 @@ jobs:
         name: Docker meta
         id: meta
         if: ${{ inputs.output == 'image' }}
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ${{ inputs.meta-images }}
           tags: ${{ inputs.meta-tags }}
@@ -580,14 +579,13 @@ jobs:
       -
         name: Login to registry
         if: ${{ inputs.push && inputs.output == 'image' }}
-        # TODO: switch to docker/login-action when OIDC is supported
-        uses: crazy-max/docker-login-action@dockerhub-oidc
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           registry-auth: ${{ secrets.registry-auths }}
       -
         name: Set up Docker Buildx
         if: ${{ inputs.push && inputs.output == 'image' }}
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
         with:
           version: ${{ env.BUILDX_VERSION }}
           buildkitd-flags: --debug
@@ -595,7 +593,7 @@ jobs:
       -
         name: Create manifest
         if: ${{ inputs.output == 'image' }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_PUSH: ${{ inputs.push }}
           INPUT_IMAGE-NAMES: ${{ inputs.meta-images }}
@@ -644,7 +642,7 @@ jobs:
       -
         name: Set outputs
         id: set
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_BUILD-OUTPUTS: ${{ toJSON(needs.build.outputs) }}
         with:

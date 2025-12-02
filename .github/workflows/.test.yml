@@ -56,7 +56,7 @@ jobs:
     steps:
       -
         name: Builder outputs
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.build-aws-single.outputs) }}
         with:
@@ -107,7 +107,7 @@ jobs:
     steps:
       -
         name: Builder outputs
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.build-aws.outputs) }}
         with:
@@ -156,7 +156,7 @@ jobs:
     steps:
       -
         name: Builder outputs
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.build-ghcr.outputs) }}
         with:
@@ -204,58 +204,9 @@ jobs:
     steps:
       -
         name: Builder outputs
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.build-dockerhub-stage.outputs) }}
-        with:
-          script: |
-            const builderOutputs = JSON.parse(core.getInput('builder-outputs'));
-            core.info(JSON.stringify(builderOutputs, null, 2));
-
-  build-dockerhub-stage-oidc:
-    uses: ./.github/workflows/build.yml
-    permissions:
-      contents: read
-      id-token: write
-    with:
-      output: image
-      push: ${{ github.event_name != 'pull_request' }}
-      meta-images: registry-1-stage.docker.io/docker/github-builder-test
-      meta-tags: |
-        type=raw,value=${{ github.run_id }},prefix=oidc-
-      build-file: test/hello.Dockerfile
-      build-sbom: true
-      build-platforms: linux/amd64,linux/arm64
-    secrets:
-      registry-auths: |
-        - registry: registry-1-stage.docker.io
-          username: docker:cdeb5882-30b7-4076-be92-bfdceb258e9c
-
-  build-dockerhub-stage-oidc-verify:
-    uses: ./.github/workflows/verify.yml
-    if: ${{ github.event_name != 'pull_request' }}
-    permissions:
-      contents: read
-      id-token: write
-    needs:
-      - build-dockerhub-stage-oidc
-    with:
-      builder-outputs: ${{ toJSON(needs.build-dockerhub-stage-oidc.outputs) }}
-    secrets:
-      registry-auths: |
-        - registry: registry-1-stage.docker.io
-          username: docker:cdeb5882-30b7-4076-be92-bfdceb258e9c
-
-  build-dockerhub-stage-oidc-outputs:
-    runs-on: ubuntu-24.04
-    needs:
-      - build-dockerhub-stage-oidc
-    steps:
-      -
-        name: Builder outputs
-        uses: actions/github-script@v8
-        env:
-          INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.build-dockerhub-stage-oidc.outputs) }}
         with:
           script: |
             const builderOutputs = JSON.parse(core.getInput('builder-outputs'));
@@ -310,7 +261,7 @@ jobs:
     steps:
       -
         name: Builder outputs
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.build-ghcr-and-aws.outputs) }}
         with:
@@ -346,7 +297,7 @@ jobs:
     steps:
       -
         name: Builder outputs
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.local.outputs) }}
         with:
@@ -381,7 +332,7 @@ jobs:
     steps:
       -
         name: Builder outputs
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.build-local-single.outputs) }}
         with:
@@ -447,7 +398,7 @@ jobs:
     steps:
       -
         name: Builder outputs
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.bake-aws-single.outputs) }}
         with:
@@ -498,7 +449,7 @@ jobs:
     steps:
       -
         name: Builder outputs
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.bake-aws.outputs) }}
         with:
@@ -557,7 +508,7 @@ jobs:
     steps:
       -
         name: Builder outputs
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.bake-ghcr-and-aws.outputs) }}
         with:
@@ -594,7 +545,7 @@ jobs:
     steps:
       -
         name: Builder outputs
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.bake-local.outputs) }}
         with:
@@ -631,7 +582,7 @@ jobs:
     steps:
       -
         name: Builder outputs
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.bake-local-single.outputs) }}
         with:
