@@ -31,33 +31,40 @@ jobs:
             const cosignVerifyCommands = builderOutputs['cosign-verify-commands'];
             const artifactName = builderOutputs['artifact-name'];
             const outputType = builderOutputs['output-type'];
-            if (!cosignVersion || !cosignVerifyCommands || !artifactName || !outputType) {
-              throw new Error('Missing required build outputs for verification');
+            const signed = builderOutputs['signed'] === 'true';
+            if (!signed) {
+              core.warning('No signatures to verify, skipping verification steps');
+            } else if (!cosignVersion || !cosignVerifyCommands || !outputType || (outputType === 'local' && !artifactName)) {
+              core.setFailed('Missing required builder outputs for signature verification');
+              return;
             }
             
             core.setOutput('cosign-version', cosignVersion);
             core.setOutput('cosign-verify-commands', cosignVerifyCommands);
             core.setOutput('artifact-name', artifactName);
             core.setOutput('output-type', outputType);
+            core.setOutput('signed', signed);
       -
         name: Install Cosign
+        if: ${{ steps.vars.outputs.signed == 'true' }}
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
         with:
           cosign-release: ${{ steps.vars.outputs.cosign-version }}
       -
         name: Login to registry
-        if: ${{ steps.vars.outputs.output-type == 'image' }}
+        if: ${{ steps.vars.outputs.signed == 'true' && steps.vars.outputs.output-type == 'image' }}
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           registry-auth: ${{ secrets.registry-auths }}
       -
         name: Download artifacts
-        if: ${{ steps.vars.outputs.output-type == 'local' }}
+        if: ${{ steps.vars.outputs.signed == 'true' && steps.vars.outputs.output-type == 'local' }}
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: ${{ steps.vars.outputs.artifact-name }}
       -
         name: Verify signatures
+        if: ${{ steps.vars.outputs.signed == 'true' }}
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_COSIGN-VERIFY-COMMANDS: ${{ steps.vars.outputs.cosign-verify-commands }}

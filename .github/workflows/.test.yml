@@ -21,15 +21,16 @@ jobs:
       contents: read
       id-token: write
     with:
+      cache: true
+      file: test/hello.Dockerfile
       output: image
       push: ${{ github.event_name != 'pull_request' }}
-      cache: true
+      sbom: true
       meta-images: |
         public.ecr.aws/q3b5f1u4/test-docker-action
       meta-tags: |
         type=raw,value=build-ghbuilder-single-${{ github.run_id }}
-      build-file: test/hello.Dockerfile
-      build-sbom: true
+
     secrets:
       registry-auths: |
         - registry: public.ecr.aws
@@ -70,17 +71,17 @@ jobs:
       contents: read
       id-token: write
     with:
-      output: image
-      push: ${{ github.event_name != 'pull_request' }}
       cache: true
       cache-scope: build-aws
+      file: test/hello.Dockerfile
+      output: image
+      platforms: linux/amd64,linux/arm64
+      push: ${{ github.event_name != 'pull_request' }}
+      sbom: true
       meta-images: |
         public.ecr.aws/q3b5f1u4/test-docker-action
       meta-tags: |
         type=raw,value=build-ghbuilder-${{ github.run_id }}
-      build-file: test/hello.Dockerfile
-      build-sbom: true
-      build-platforms: linux/amd64,linux/arm64
     secrets:
       registry-auths: |
         - registry: public.ecr.aws
@@ -115,6 +116,58 @@ jobs:
             const builderOutputs = JSON.parse(core.getInput('builder-outputs'));
             core.info(JSON.stringify(builderOutputs, null, 2));
 
+  build-aws-nosign:
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      cache: true
+      cache-scope: build-aws
+      file: test/hello.Dockerfile
+      output: image
+      platforms: linux/amd64,linux/arm64
+      push: ${{ github.event_name != 'pull_request' }}
+      sbom: true
+      sign: false
+      meta-images: |
+        public.ecr.aws/q3b5f1u4/test-docker-action
+      meta-tags: |
+        type=raw,value=build-ghbuilder-nosign--${{ github.run_id }}
+    secrets:
+      registry-auths: |
+        - registry: public.ecr.aws
+          username: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  build-aws-nosign-verify:
+    uses: ./.github/workflows/verify.yml
+    if: ${{ github.event_name != 'pull_request' }}
+    needs:
+      - build-aws-nosign
+    with:
+      builder-outputs: ${{ toJSON(needs.build-aws-nosign.outputs) }}
+    secrets:
+      registry-auths: |
+        - registry: public.ecr.aws
+          username: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  build-aws-nosign-outputs:
+    runs-on: ubuntu-24.04
+    needs:
+      - build-aws-nosign
+    steps:
+      -
+        name: Builder outputs
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.build-aws-nosign.outputs) }}
+        with:
+          script: |
+            const builderOutputs = JSON.parse(core.getInput('builder-outputs'));
+            core.info(JSON.stringify(builderOutputs, null, 2));
+
   build-ghcr:
     uses: ./.github/workflows/build.yml
     permissions:
@@ -122,14 +175,14 @@ jobs:
       id-token: write
       packages: write
     with:
+      file: test/hello.Dockerfile
       output: image
+      platforms: linux/amd64,linux/arm64
       push: ${{ github.event_name != 'pull_request' }}
+      sbom: true
       meta-images: ghcr.io/docker/github-builder-test
       meta-tags: |
         type=raw,value=build-${{ github.run_id }}
-      build-file: test/hello.Dockerfile
-      build-sbom: true
-      build-platforms: linux/amd64,linux/arm64
     secrets:
       registry-auths: |
         - registry: ghcr.io
@@ -170,14 +223,14 @@ jobs:
       contents: read
       id-token: write
     with:
+      file: test/hello.Dockerfile
       output: image
+      platforms: linux/amd64,linux/arm64
       push: ${{ github.event_name != 'pull_request' }}
+      sbom: true
       meta-images: registry-1-stage.docker.io/docker/github-builder-test
       meta-tags: |
         type=raw,value=build-${{ github.run_id }}
-      build-file: test/hello.Dockerfile
-      build-sbom: true
-      build-platforms: linux/amd64,linux/arm64
     secrets:
       registry-auths: |
         - registry: registry-1-stage.docker.io
@@ -219,16 +272,16 @@ jobs:
       id-token: write
       packages: write
     with:
+      file: test/hello.Dockerfile
       output: image
+      platforms: linux/amd64,linux/arm64
       push: ${{ github.event_name != 'pull_request' }}
+      sbom: true
       meta-images: |
         ghcr.io/docker/github-builder-test
         public.ecr.aws/q3b5f1u4/test-docker-action
       meta-tags: |
         type=raw,value=${{ github.run_id }},prefix=build-ghcr-and-aws-
-      build-file: test/hello.Dockerfile
-      build-sbom: true
-      build-platforms: linux/amd64,linux/arm64
     secrets:
       registry-auths: |
         - registry: ghcr.io
@@ -275,12 +328,13 @@ jobs:
       contents: read
       id-token: write
     with:
-      output: local
-      push: ${{ github.event_name != 'pull_request' }}
       artifact-name: build-output
-      build-file: test/hello.Dockerfile
-      build-sbom: true
-      build-platforms: linux/amd64,linux/arm64
+      artifact-upload: true
+      file: test/hello.Dockerfile
+      output: local
+      platforms: linux/amd64,linux/arm64
+      sbom: true
+      sign: ${{ github.event_name != 'pull_request' }}
 
   build-local-verify:
     uses: ./.github/workflows/verify.yml
@@ -311,11 +365,12 @@ jobs:
       contents: read
       id-token: write
     with:
-      output: local
-      push: ${{ github.event_name != 'pull_request' }}
       artifact-name: build-single-output
-      build-file: test/hello.Dockerfile
-      build-sbom: true
+      artifact-upload: true
+      file: test/hello.Dockerfile
+      output: local
+      sbom: true
+      sign: ${{ github.event_name != 'pull_request' }}
 
   build-local-single-verify:
     uses: ./.github/workflows/verify.yml
@@ -340,6 +395,76 @@ jobs:
             const builderOutputs = JSON.parse(core.getInput('builder-outputs'));
             core.info(JSON.stringify(builderOutputs, null, 2));
 
+  build-local-noupload:
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      artifact-upload: false
+      file: test/hello.Dockerfile
+      output: local
+      platforms: linux/amd64,linux/arm64
+      sbom: true
+
+  build-local-noupload-verify:
+    uses: ./.github/workflows/verify.yml
+    needs:
+      - build-local-noupload
+    with:
+      builder-outputs: ${{ toJSON(needs.build-local-noupload.outputs) }}
+
+  build-local-noupload-outputs:
+    runs-on: ubuntu-24.04
+    needs:
+      - build-local-noupload
+    steps:
+      -
+        name: Builder outputs
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.build-local-noupload.outputs) }}
+        with:
+          script: |
+            const builderOutputs = JSON.parse(core.getInput('builder-outputs'));
+            core.info(JSON.stringify(builderOutputs, null, 2));
+
+  build-local-nosign:
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      artifact-name: build-nosign-output
+      artifact-upload: true
+      file: test/hello.Dockerfile
+      output: local
+      platforms: linux/amd64,linux/arm64
+      sbom: true
+      sign: false
+
+  build-local-nosign-verify:
+    uses: ./.github/workflows/verify.yml
+    needs:
+      - build-local-nosign
+    with:
+      builder-outputs: ${{ toJSON(needs.build-local-nosign.outputs) }}
+
+  build-local-nosign-outputs:
+    runs-on: ubuntu-24.04
+    needs:
+      - build-local-nosign
+    steps:
+      -
+        name: Builder outputs
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.build-local-nosign.outputs) }}
+        with:
+          script: |
+            const builderOutputs = JSON.parse(core.getInput('builder-outputs'));
+            core.info(JSON.stringify(builderOutputs, null, 2));
+
   build-set-runner:
     uses: ./.github/workflows/build.yml
     permissions:
@@ -347,13 +472,13 @@ jobs:
       id-token: write
     with:
       runner: amd64
+      file: test/hello.Dockerfile
       output: image
+      platforms: linux/amd64,linux/arm64
       push: false
       meta-images: ghcr.io/docker/github-builder-test
       meta-tags: |
         type=raw,value=build-${{ github.run_id }}
-      build-file: test/hello.Dockerfile
-      build-platforms: linux/amd64,linux/arm64
 
   bake-aws-single:
     uses: ./.github/workflows/bake.yml
