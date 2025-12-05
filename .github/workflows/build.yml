@@ -39,20 +39,6 @@ on:
         type: string
         description: "List of build-time variables. If you want to set a build-arg through an environment variable, use the envs input"
         required: false
-      cache:
-        type: boolean
-        description: "Enable cache to GitHub Actions cache backend"
-        required: false
-        default: false
-      cache-scope:
-        type: string
-        description: "Which scope cache object belongs to if cache enabled (defaults to target name if set)"
-        required: false
-      cache-mode:
-        type: string
-        description: "Cache layers to export if cache enabled (min or max)"
-        required: false
-        default: 'min'
       context:
         type: string
         description: "Context to build from in the Git working tree"
@@ -330,6 +316,7 @@ jobs:
         if: ${{ inputs.setup-qemu }}
         with:
           image: ${{ inputs.setup-qemu-image }}
+          cache-image: false
       -
         name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
@@ -337,6 +324,7 @@ jobs:
           version: ${{ env.BUILDX_VERSION }}
           buildkitd-flags: --debug
           driver-opts: image=${{ env.BUILDKIT_IMAGE }}
+          cache-binary: false
       -
         name: Prepare
         id: prepare
@@ -345,9 +333,6 @@ jobs:
           INPUT_PLATFORM: ${{ matrix.platform }}
           INPUT_LOCAL-EXPORT-DIR: ${{ env.LOCAL_EXPORT_DIR }}
           INPUT_ANNOTATIONS: ${{ inputs.annotations }}
-          INPUT_CACHE: ${{ inputs.cache }}
-          INPUT_CACHE-SCOPE: ${{ inputs.cache-scope }}
-          INPUT_CACHE-MODE: ${{ inputs.cache-mode }}
           INPUT_LABELS: ${{ inputs.labels }}
           INPUT_CONTEXT: ${{ inputs.context }}
           INPUT_OUTPUT: ${{ inputs.output }}
@@ -368,9 +353,6 @@ jobs:
             const inpLocalExportDir = core.getInput('local-export-dir');
             
             const inpAnnotations = core.getMultilineInput('annotations');
-            const inpCache = core.getBooleanInput('cache');
-            const inpCacheScope = core.getInput('cache-scope');
-            const inpCacheMode = core.getInput('cache-mode');
             const inpContext = core.getInput('context');
             const inpLabels = core.getMultilineInput('labels');
             const inpOutput = core.getInput('output');
@@ -406,11 +388,6 @@ jobs:
               core.setOutput('platform', inpPlatform);
             }
             
-            if (inpCache) {
-              core.setOutput('cache-from', `type=gha,scope=${inpCacheScope || inpTarget || 'buildkit'}${platformPairSuffix}`);
-              core.setOutput('cache-to', `type=gha,scope=${inpCacheScope || inpTarget || 'buildkit'}${platformPairSuffix},mode=${inpCacheMode}`);
-            }
-            
             if (inpSetMetaAnnotations && inpMetaAnnotations.length > 0) {
               inpAnnotations.push(...inpMetaAnnotations);
             }
@@ -442,8 +419,6 @@ jobs:
         with:
           annotations: ${{ steps.prepare.outputs.annotations }}
           build-args: ${{ inputs.build-args }}
-          cache-from: ${{ steps.prepare.outputs.cache-from }}
-          cache-to: ${{ steps.prepare.outputs.cache-to }}
           context: ${{ steps.prepare.outputs.context }}
           file: ${{ inputs.file }}
           labels: ${{ steps.prepare.outputs.labels }}
@@ -636,6 +611,7 @@ jobs:
           version: ${{ env.BUILDX_VERSION }}
           buildkitd-flags: --debug
           driver-opts: image=${{ env.BUILDKIT_IMAGE }}
+          cache-binary: false
       -
         name: Create manifest
         if: ${{ inputs.output == 'image' }}
