@@ -577,18 +577,21 @@ jobs:
             });
             
             const verifyResults = await sigstore.verifySignedManifests(
-              { certificateIdentityRegexp: `^https://github.com/docker/github-builder-experimental/.github/workflows/bake.yml.*$` },
+              { certificateIdentityRegexp: `^https://github\.com/docker/github-builder-experimental/\.github/workflows/bake\.yml@.*$` },
               signResults
             );
             
             await core.group(`Verify commands`, async () => {
               const verifyCommands = [];
               for (const [attestationRef, verifyResult] of Object.entries(verifyResults)) {
-                const cmd = `cosign ${verifyResult.cosignArgs.join(' ')} ${attestationRef}`;
-                core.info(cmd);
+                const cmd = {
+                  executable: 'cosign',
+                  args: [...verifyResult.cosignArgs, attestationRef]
+                };
+                core.info(`${cmd.executable} ${cmd.args.join(' ')}`);
                 verifyCommands.push(cmd);
               }
-              core.setOutput('verify-commands', verifyCommands.join('\n'));
+              core.setOutput('verify-commands', JSON.stringify(verifyCommands));
             });
       -
         name: Signing local artifacts
@@ -609,18 +612,21 @@ jobs:
             });
             
             const verifyResults = await sigstore.verifySignedArtifacts(
-              { certificateIdentityRegexp: `^https://github.com/docker/github-builder-experimental/.github/workflows/bake.yml.*$` },
+              { certificateIdentityRegexp: `^https://github\.com/docker/github-builder-experimental/\.github/workflows/bake\.yml@.*$` },
               signResults
             );
             
             await core.group(`Verify commands`, async () => {
               const verifyCommands = [];
               for (const [artifactPath, verifyResult] of Object.entries(verifyResults)) {
-                const cmd = `cosign ${verifyResult.cosignArgs.join(' ')} --bundle ${path.relative(inplocalExportDir, verifyResult.bundlePath)} ${path.relative(inplocalExportDir, artifactPath)}`;
-                core.info(cmd);
+                const cmd = {
+                  executable: 'cosign',
+                  args: [...verifyResult.cosignArgs, '--bundle', path.relative(inplocalExportDir, verifyResult.bundlePath), path.relative(inplocalExportDir, artifactPath)]
+                };
+                core.info(`${cmd.executable} ${cmd.args.join(' ')}`);
                 verifyCommands.push(cmd);
               }
-              core.setOutput('verify-commands', verifyCommands.join('\n'));
+              core.setOutput('verify-commands', JSON.stringify(verifyCommands));
             });
       -
         name: List local output
@@ -652,7 +658,7 @@ jobs:
             const inpArtifactName = core.getInput('artifact-name');
             
             const result = {
-              verifyCommands: inpVerifyCommands,
+              verifyCommands: inpVerifyCommands || '[]',
               imageDigest: inpImageDigest,
               artifactName: inpArtifactName
             }
@@ -759,7 +765,8 @@ jobs:
             for (const key of Object.keys(inpBuildOutputs)) {
               const output = JSON.parse(inpBuildOutputs[key]);
               if (output.verifyCommands) {
-                verifyCommands.push(output.verifyCommands);
+                const commands = JSON.parse(output.verifyCommands);
+                verifyCommands.push(...commands);
               }
             }
-            core.setOutput('cosign-verify-commands', verifyCommands.join('\n'));
+            core.setOutput('cosign-verify-commands', JSON.stringify(verifyCommands));

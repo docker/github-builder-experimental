@@ -64,6 +64,7 @@ jobs:
           INPUT_COSIGN-VERIFY-COMMANDS: ${{ steps.vars.outputs.cosign-verify-commands }}
         with:
           script: |
-            for (const cmd of core.getMultilineInput('cosign-verify-commands')) {
-              await exec.exec(cmd);
+            const commands = JSON.parse(core.getInput('cosign-verify-commands'));
+            for (const cmd of commands) {
+              await exec.exec(cmd.executable, cmd.args);
             }
