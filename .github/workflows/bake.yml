@@ -174,7 +174,7 @@ jobs:
           INPUT_DAT-MODULE: ${{ env.DOCKER_ACTIONS_TOOLKIT_MODULE }}
         with:
           script: |
-            await exec.exec('npm', ['install', '--prefer-offline', '--no-audit', core.getInput('dat-module')]);
+            await exec.exec('npm', ['install', '--prefer-offline', '--no-audit', '--ignore-scripts', core.getInput('dat-module')]);
       -
         name: Set includes
         id: set
@@ -321,7 +321,7 @@ jobs:
           INPUT_DAT-MODULE: ${{ env.DOCKER_ACTIONS_TOOLKIT_MODULE }}
         with:
           script: |
-            await exec.exec('npm', ['install', '--prefer-offline', '--no-audit', core.getInput('dat-module')]);
+            await exec.exec('npm', ['install', '--prefer-offline', '--no-audit', '--ignore-scripts', core.getInput('dat-module')]);
       -
         name: Docker meta
         id: meta
