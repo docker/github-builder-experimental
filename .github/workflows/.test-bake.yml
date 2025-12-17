@@ -29,17 +29,17 @@ jobs:
       contents: read
       id-token: write
     with:
-      context: test
-      target: hello
-      output: image
-      push: ${{ github.event_name != 'pull_request' }}
       cache: true
       cache-scope: bake-aws
+      context: test
+      output: image
+      push: ${{ github.event_name != 'pull_request' }}
+      sbom: true
+      target: hello
       meta-images: |
         public.ecr.aws/q3b5f1u4/test-docker-action
       meta-tags: |
         type=raw,value=bake-ghbuilder-single-${{ github.run_id }}
-      bake-sbom: true
     secrets:
       registry-auths: |
         - registry: public.ecr.aws
@@ -80,17 +80,17 @@ jobs:
       contents: read
       id-token: write
     with:
-      context: test
-      target: hello-cross
-      output: image
-      push: ${{ github.event_name != 'pull_request' }}
       cache: true
       cache-scope: bake-aws
+      context: test
+      output: image
+      push: ${{ github.event_name != 'pull_request' }}
+      sbom: true
+      target: hello-cross
       meta-images: |
         public.ecr.aws/q3b5f1u4/test-docker-action
       meta-tags: |
         type=raw,value=bake-ghbuilder-${{ github.run_id }}
-      bake-sbom: true
     secrets:
       registry-auths: |
         - registry: public.ecr.aws
@@ -125,6 +125,58 @@ jobs:
             const builderOutputs = JSON.parse(core.getInput('builder-outputs'));
             core.info(JSON.stringify(builderOutputs, null, 2));
 
+  bake-aws-nosign:
+    uses: ./.github/workflows/bake.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      cache: true
+      cache-scope: bake-aws-nosign
+      context: test
+      output: image
+      push: ${{ github.event_name != 'pull_request' }}
+      sbom: true
+      sign: false
+      target: hello-cross
+      meta-images: |
+        public.ecr.aws/q3b5f1u4/test-docker-action
+      meta-tags: |
+        type=raw,value=bake-ghbuilder-nosign-${{ github.run_id }}
+    secrets:
+      registry-auths: |
+        - registry: public.ecr.aws
+          username: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  bake-aws-nosign-verify:
+    uses: ./.github/workflows/verify.yml
+    if: ${{ github.event_name != 'pull_request' }}
+    needs:
+      - bake-aws-nosign
+    with:
+      builder-outputs: ${{ toJSON(needs.bake-aws-nosign.outputs) }}
+    secrets:
+      registry-auths: |
+        - registry: public.ecr.aws
+          username: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  bake-aws-nosign-outputs:
+    runs-on: ubuntu-24.04
+    needs:
+      - bake-aws-nosign
+    steps:
+      -
+        name: Builder outputs
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.bake-aws-nosign.outputs) }}
+        with:
+          script: |
+            const builderOutputs = JSON.parse(core.getInput('builder-outputs'));
+            core.info(JSON.stringify(builderOutputs, null, 2));
+
   bake-ghcr-and-aws:
     uses: ./.github/workflows/bake.yml
     permissions:
@@ -132,18 +184,18 @@ jobs:
       id-token: write
       packages: write
     with:
-      context: test
-      target: hello-cross
-      output: image
-      push: ${{ github.event_name != 'pull_request' }}
       cache: true
       cache-scope: bake-aws
+      context: test
+      output: image
+      push: ${{ github.event_name != 'pull_request' }}
+      sbom: true
+      target: hello-cross
       meta-images: |
         ghcr.io/docker/github-builder-test
         public.ecr.aws/q3b5f1u4/test-docker-action
       meta-tags: |
         type=raw,value=${{ github.run_id }},prefix=bake-ghcr-and-aws-
-      bake-sbom: true
     secrets:
       registry-auths: |
         - registry: ghcr.io
@@ -190,13 +242,14 @@ jobs:
       contents: read
       id-token: write
     with:
-      context: test
-      target: hello-cross
-      output: local
-      push: ${{ github.event_name != 'pull_request' }}
-      cache: true
       artifact-name: bake-output
-      bake-sbom: true
+      artifact-upload: true
+      cache: true
+      context: test
+      output: local
+      sbom: true
+      sign: ${{ github.event_name != 'pull_request' }}
+      target: hello-cross
 
   bake-local-verify:
     uses: ./.github/workflows/verify.yml
@@ -227,13 +280,14 @@ jobs:
       contents: read
       id-token: write
     with:
-      context: test
-      target: hello
-      output: local
-      push: ${{ github.event_name != 'pull_request' }}
-      cache: true
       artifact-name: bake-single-output
-      bake-sbom: true
+      artifact-upload: true
+      cache: true
+      context: test
+      output: local
+      sbom: true
+      sign: ${{ github.event_name != 'pull_request' }}
+      target: hello
 
   bake-local-single-verify:
     uses: ./.github/workflows/verify.yml
@@ -258,6 +312,78 @@ jobs:
             const builderOutputs = JSON.parse(core.getInput('builder-outputs'));
             core.info(JSON.stringify(builderOutputs, null, 2));
 
+  bake-local-noupload:
+    uses: ./.github/workflows/bake.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      artifact-upload: false
+      cache: true
+      context: test
+      output: local
+      sbom: true
+      target: hello-cross
+
+  bake-local-noupload-verify:
+    uses: ./.github/workflows/verify.yml
+    needs:
+      - bake-local-noupload
+    with:
+      builder-outputs: ${{ toJSON(needs.bake-local-noupload.outputs) }}
+
+  bake-local-noupload-outputs:
+    runs-on: ubuntu-24.04
+    needs:
+      - bake-local-noupload
+    steps:
+      -
+        name: Builder outputs
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.bake-local-noupload.outputs) }}
+        with:
+          script: |
+            const builderOutputs = JSON.parse(core.getInput('builder-outputs'));
+            core.info(JSON.stringify(builderOutputs, null, 2));
+
+  bake-local-nosign:
+    uses: ./.github/workflows/bake.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      artifact-name: bake-nosign-output
+      artifact-upload: true
+      cache: true
+      context: test
+      output: local
+      sbom: true
+      sign: false
+      target: hello-cross
+
+  bake-local-nosign-verify:
+    uses: ./.github/workflows/verify.yml
+    needs:
+      - bake-local-nosign
+    with:
+      builder-outputs: ${{ toJSON(needs.bake-local-nosign.outputs) }}
+
+  build-local-nosign-outputs:
+    runs-on: ubuntu-24.04
+    needs:
+      - bake-local-nosign
+    steps:
+      -
+        name: Builder outputs
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.build-local-nosign.outputs) }}
+        with:
+          script: |
+            const builderOutputs = JSON.parse(core.getInput('builder-outputs'));
+            core.info(JSON.stringify(builderOutputs, null, 2));
+
   bake-set-runner:
     uses: ./.github/workflows/bake.yml
     permissions:
@@ -266,9 +392,9 @@ jobs:
     with:
       runner: amd64
       context: test
-      target: hello-cross
       output: image
       push: false
+      target: hello-cross
       meta-images: |
         public.ecr.aws/q3b5f1u4/test-docker-action
       meta-tags: |
