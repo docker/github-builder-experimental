@@ -23,17 +23,13 @@ on:
         description: "Upload build output GitHub artifact (for local output)"
         required: false
         default: false
-      envs:
-        type: string
-        description: "Environment variables to inject in the reusable workflow as list of key-value pair. This is similar to the GitHub Actions env context that is currently not available when calling a reusable workflow"
-        required: false
       annotations:
         type: string
         description: "List of annotations to set to the image (for image output)"
         required: false
       build-args:
         type: string
-        description: "List of build-time variables. If you want to set a build-arg through an environment variable, use the envs input"
+        description: "List of build-time variables"
         required: false
       context:
         type: string
@@ -270,18 +266,6 @@ jobs:
       result_18: ${{ steps.result.outputs.result_18 }}
       result_19: ${{ steps.result.outputs.result_19 }}
     steps:
-      -
-        name: Environment variables
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-        env:
-          INPUT_ENVS: ${{ inputs.envs }}
-        with:
-          script: |
-            for (const env of core.getMultilineInput('envs')) {
-              core.info(env);
-              const [key, value] = env.split('=', 2);
-              core.exportVariable(key, value);
-            }
       -
         name: Install @docker/actions-toolkit
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
