@@ -31,6 +31,8 @@ jobs:
       contents: read
       id-token: write
     with:
+      cache: true
+      cache-scope: build-aws-single
       file: test/hello.Dockerfile
       output: image
       push: ${{ github.event_name != 'pull_request' }}
@@ -80,6 +82,8 @@ jobs:
       contents: read
       id-token: write
     with:
+      cache: true
+      cache-scope: build-aws
       file: test/hello.Dockerfile
       output: image
       platforms: linux/amd64,linux/arm64
@@ -129,6 +133,8 @@ jobs:
       contents: read
       id-token: write
     with:
+      cache: true
+      cache-scope: build-aws-nosign
       file: test/hello.Dockerfile
       output: image
       platforms: linux/amd64,linux/arm64
