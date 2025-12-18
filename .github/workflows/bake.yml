@@ -252,16 +252,14 @@ jobs:
               if (platforms.length === 0) {
                 includes.push({
                   index: 0,
-                  runner: runner === 'auto' ? 'ubuntu-24.04' : runner,
-                  sign: sign
+                  runner: runner === 'auto' ? 'ubuntu-24.04' : runner
                 });
               } else {
                 platforms.forEach((platform, index) => {
                   includes.push({
                     index: index,
                     platform: platform,
-                    runner: runner === 'auto' ? ((!privateRepo && platform.startsWith('linux/arm')) ? 'ubuntu-24.04-arm' : 'ubuntu-24.04') : runner,
-                    sign: sign
+                    runner: runner === 'auto' ? ((!privateRepo && platform.startsWith('linux/arm')) ? 'ubuntu-24.04-arm' : 'ubuntu-24.04') : runner
                   });
                 });
               }
@@ -509,7 +507,7 @@ jobs:
             core.setOutput('digest', imageDigest);
       -
         name: Install Cosign
-        if: ${{ needs.prepare.outputs.sign }}
+        if: ${{ needs.prepare.outputs.sign == 'true' }}
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_COSIGN-VERSION: ${{ env.COSIGN_VERSION }}
@@ -532,7 +530,7 @@ jobs:
       -
         name: Signing attestation manifests
         id: signing-attestation-manifests
-        if: ${{ matrix.sign && inputs.output == 'image' }}
+        if: ${{ needs.prepare.outputs.sign == 'true' && inputs.output == 'image' }}
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_IMAGE-NAMES: ${{ inputs.meta-images }}
@@ -579,7 +577,7 @@ jobs:
       -
         name: Signing local artifacts
         id: signing-local-artifacts
-        if: ${{ matrix.sign && inputs.output == 'local' }}
+        if: ${{ needs.prepare.outputs.sign == 'true' && inputs.output == 'local' }}
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_LOCAL-OUTPUT-DIR: ${{ env.LOCAL_EXPORT_DIR }}
@@ -631,7 +629,7 @@ jobs:
           INPUT_IMAGE-DIGEST: ${{ steps.get-image-digest.outputs.digest }}
           INPUT_ARTIFACT-NAME: ${{ inputs.artifact-name }}${{ steps.prepare.outputs.platform-pair-suffix }}
           INPUT_ARTIFACT-UPLOAD: ${{ inputs.artifact-upload }}
-          INPUT_SIGNED: ${{ matrix.sign }}
+          INPUT_SIGNED: ${{ needs.prepare.outputs.sign }}
         with:
           script: |
             const inpIndex = core.getInput('index');
