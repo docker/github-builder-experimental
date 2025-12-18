@@ -31,6 +31,8 @@ jobs:
       contents: read
       id-token: write
     with:
+      cache: true
+      cache-scope: bake-aws-single
       context: test
       output: image
       push: ${{ github.event_name != 'pull_request' }}
@@ -80,6 +82,8 @@ jobs:
       contents: read
       id-token: write
     with:
+      cache: true
+      cache-scope: bake-aws
       context: test
       output: image
       push: ${{ github.event_name != 'pull_request' }}
@@ -129,6 +133,8 @@ jobs:
       contents: read
       id-token: write
     with:
+      cache: true
+      cache-scope: bake-aws-nosign
       context: test
       output: image
       push: ${{ github.event_name != 'pull_request' }}

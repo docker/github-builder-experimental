@@ -23,6 +23,20 @@ on:
         description: "Upload build output GitHub artifact (for local output)"
         required: false
         default: false
+      cache:
+        type: boolean
+        description: "Enable cache to GitHub Actions cache backend"
+        required: false
+        default: false
+      cache-scope:
+        type: string
+        description: "Which scope cache object belongs to if cache enabled (defaults to target name)"
+        required: false
+      cache-mode:
+        type: string
+        description: "Cache layers to export if cache enabled (min or max)"
+        required: false
+        default: 'min'
       context:
         type: string
         description: "Context to build from in the Git working tree"
@@ -136,6 +150,7 @@ jobs:
     outputs:
       includes: ${{ steps.set.outputs.includes }}
       sign: ${{ steps.set.outputs.sign }}
+      privateRepo: ${{ steps.set.outputs.privateRepo }}
     steps:
       -
         name: Install @docker/actions-toolkit
@@ -247,6 +262,11 @@ jobs:
             }
 
             const privateRepo = GitHub.context.payload.repository?.private ?? false;
+            await core.group(`Set privateRepo output`, async () => {
+              core.info(`privateRepo: ${privateRepo}`);
+              core.setOutput('privateRepo', privateRepo);
+            });
+            
             await core.group(`Set includes output`, async () => {
               let includes = [];
               if (platforms.length === 0) {
@@ -330,13 +350,109 @@ jobs:
         with:
           cache-image: false
       -
+        name: Expose GitHub Runtime
+        uses: crazy-max/ghaction-github-runtime@3cb05d89e1f492524af3d41a1c98c83bc3025124 # v3.1.0
+      -
         name: Set up Docker Buildx
+        id: buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
         with:
           version: ${{ env.BUILDX_VERSION }}
-          buildkitd-flags: --debug
-          driver-opts: image=${{ env.BUILDKIT_IMAGE }}
           cache-binary: false
+          buildkitd-flags: --debug
+          driver-opts: |
+            image=${{ env.BUILDKIT_IMAGE }}
+            env.ACTIONS_ID_TOKEN_REQUEST_TOKEN=${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
+            env.ACTIONS_ID_TOKEN_REQUEST_URL=${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+          buildkitd-config-inline: |
+            [cache]
+              [cache.gha]
+                [cache.gha.sign]
+                  command = ["ghacache-sign-script.sh"]
+                [cache.gha.verify]
+                  required = true
+                  [cache.gha.verify.policy]
+                    timestampThreshold = 1
+                    tlogThreshold = ${{ matrix.privateRepo == 'true' && '0' || '1' }}
+                    subjectAlternativeName = "https://github.com/docker/github-builder-experimental/.github/workflows/bake.yml*"
+                    issuer = "https://token.actions.githubusercontent.com"
+                    runnerEnvironment = "github-hosted"
+      -
+        name: Install Cosign
+        if: ${{ needs.prepare.outputs.sign == 'true' || inputs.cache }}
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          INPUT_COSIGN-VERSION: ${{ env.COSIGN_VERSION }}
+          INPUT_BUILDER-NAME: ${{ steps.buildx.outputs.name }}
+          INPUT_GHA-CACHE-SIGN-SCRIPT: |
+            #!/bin/sh
+            set -e
+            
+            # Create temporary files
+            out_file=$(mktemp)
+            in_file=$(mktemp)
+            trap 'rm -f "$in_file" "$out_file"' EXIT
+            cat > "$in_file"
+            
+            set -x
+            
+            # Sign with cosign
+            cosign sign-blob \
+              --yes \
+              --oidc-provider github-actions \
+              --new-bundle-format \
+              --use-signing-config \
+              --bundle "$out_file" \
+              --tlog-upload=${{ matrix.privateRepo == 'false' }} \
+              "$in_file"
+            
+            # Output bundle to stdout
+            cat "$out_file"
+        with:
+          script: |
+            const fs = require('fs');
+            const os = require('os');
+            const path = require('path');
+            
+            const { Buildx } = require('@docker/actions-toolkit/lib/buildx/buildx');
+            const { Cosign } = require('@docker/actions-toolkit/lib/cosign/cosign');
+            const { Install } = require('@docker/actions-toolkit/lib/cosign/install');
+            
+            const inpCosignVersion = core.getInput('cosign-version');
+            const inpBuilderName = core.getInput('builder-name');
+            const inpGHACacheSignScript = core.getInput('gha-cache-sign-script');
+            
+            const cosignInstall = new Install();
+            const cosignBinPath = await cosignInstall.download({
+              version: core.getInput('cosign-version'),
+              ghaNoCache: true,
+              skipState: true,
+              verifySignature: true
+            });
+            const cosignPath = await cosignInstall.install(cosignBinPath);
+            
+            const cosign = new Cosign();
+            await cosign.printVersion();
+            
+            const containerName = `${Buildx.containerNamePrefix}${inpBuilderName}0`;
+            
+            const ghaCacheSignScriptPath = path.join(os.tmpdir(), `ghacache-sign-script.sh`);
+            core.info(`Writing GitHub Actions cache sign script to ${ghaCacheSignScriptPath}`);
+            await fs.writeFileSync(ghaCacheSignScriptPath, inpGHACacheSignScript, {mode: 0o700});
+            
+            core.info(`Copying GitHub Actions cache sign script to BuildKit container ${containerName}`);
+            await exec.exec('docker', [
+              'cp',
+              ghaCacheSignScriptPath,
+              `${containerName}:/usr/bin/ghacache-sign-script.sh`
+            ]);
+            
+            core.info(`Copying cosign binary to BuildKit container ${containerName}`);
+            await exec.exec('docker', [
+              'cp',
+              cosignPath,
+              `${containerName}:/usr/bin/cosign`
+            ]);
       -
         name: Prepare
         id: prepare
@@ -344,6 +460,9 @@ jobs:
         env:
           INPUT_PLATFORM: ${{ matrix.platform }}
           INPUT_LOCAL-EXPORT-DIR: ${{ env.LOCAL_EXPORT_DIR }}
+          INPUT_CACHE: ${{ inputs.cache }}
+          INPUT_CACHE-SCOPE: ${{ inputs.cache-scope }}
+          INPUT_CACHE-MODE: ${{ inputs.cache-mode }}
           INPUT_CONTEXT: ${{ inputs.context }}
           INPUT_FILES: ${{ inputs.files }}
           INPUT_OUTPUT: ${{ inputs.output }}
@@ -371,6 +490,9 @@ jobs:
             
             const inpLocalExportDir = core.getInput('local-export-dir');
             
+            const inpCache = core.getBooleanInput('cache');
+            const inpCacheScope = core.getInput('cache-scope');
+            const inpCacheMode = core.getInput('cache-mode');
             const inpContext = core.getInput('context');
             const inpFiles = Util.getInputList('files');
             const inpOutput = core.getInput('output');
@@ -468,6 +590,10 @@ jobs:
               if (inpPlatform) {
                 bakeOverrides.push(`*.platform=${inpPlatform}`);
               }
+              if (inpCache) {
+                bakeOverrides.push(`*.cache-from=type=gha,scope=${inpCacheScope || target}${platformPairSuffix}`);
+                bakeOverrides.push(`*.cache-to=type=gha,scope=${inpCacheScope || target}${platformPairSuffix},mode=${inpCacheMode}`);
+              }
               core.info(JSON.stringify(bakeOverrides, null, 2));
               core.setOutput('overrides', bakeOverrides.join(os.EOL));
             });
@@ -505,28 +631,6 @@ jobs:
             const imageDigest = inpMetadata[inpTarget]['containerimage.digest'];
             core.info(imageDigest);
             core.setOutput('digest', imageDigest);
-      -
-        name: Install Cosign
-        if: ${{ needs.prepare.outputs.sign == 'true' }}
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-        env:
-          INPUT_COSIGN-VERSION: ${{ env.COSIGN_VERSION }}
-        with:
-          script: |
-            const { Cosign } = require('@docker/actions-toolkit/lib/cosign/cosign');
-            const { Install } = require('@docker/actions-toolkit/lib/cosign/install');
-            
-            const cosignInstall = new Install();
-            const cosignBinPath = await cosignInstall.download({
-              version: core.getInput('cosign-version'),
-              ghaNoCache: true,
-              skipState: true,
-              verifySignature: true
-            });
-            await cosignInstall.install(cosignBinPath);
-            
-            const cosign = new Cosign();
-            await cosign.printVersion();
       -
         name: Signing attestation manifests
         id: signing-attestation-manifests
