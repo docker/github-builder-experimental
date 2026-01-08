@@ -179,6 +179,55 @@ jobs:
             const builderOutputs = JSON.parse(core.getInput('builder-outputs'));
             core.info(JSON.stringify(builderOutputs, null, 2));
 
+  bake-dockerhub-stage:
+    uses: ./.github/workflows/bake.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      context: test
+      output: image
+      push: ${{ github.event_name != 'pull_request' }}
+      sbom: true
+      target: hello-cross
+      meta-images: |
+        registry-1-stage.docker.io/docker/github-builder-test
+      meta-tags: |
+        type=raw,value=bake-ghbuilder-${{ github.run_id }}
+    secrets:
+      registry-auths: |
+        - registry: registry-1-stage.docker.io
+          username: ${{ vars.DOCKERHUB_STAGE_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_STAGE_TOKEN }}
+
+  bake-dockerhub-stage-verify:
+    uses: ./.github/workflows/verify.yml
+    if: ${{ github.event_name != 'pull_request' }}
+    needs:
+      - bake-dockerhub-stage
+    with:
+      builder-outputs: ${{ toJSON(needs.bake-dockerhub-stage.outputs) }}
+    secrets:
+      registry-auths: |
+        - registry: registry-1-stage.docker.io
+          username: ${{ vars.DOCKERHUB_STAGE_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_STAGE_TOKEN }}
+
+  bake-dockerhub-stage-outputs:
+    runs-on: ubuntu-24.04
+    needs:
+      - bake-dockerhub-stage
+    steps:
+      -
+        name: Builder outputs
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          INPUT_BUILDER-OUTPUTS: ${{ toJSON(needs.bake-dockerhub-stage.outputs) }}
+        with:
+          script: |
+            const builderOutputs = JSON.parse(core.getInput('builder-outputs'));
+            core.info(JSON.stringify(builderOutputs, null, 2));
+
   bake-ghcr-and-aws:
     uses: ./.github/workflows/bake.yml
     permissions:
@@ -461,3 +510,38 @@ jobs:
       target: go
       vars: |
         XX_VERSION=1.9.0
+
+  bake-auth-scope:
+    uses: ./.github/workflows/bake.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      context: test
+      output: image
+      push: ${{ github.event_name != 'pull_request' }}
+      sbom: true
+      target: hello-cross
+      meta-images: |
+        registry-1-stage.docker.io/docker/github-builder-test
+      meta-tags: |
+        type=raw,value=bake-ghbuilder-scope-${{ github.run_id }}
+    secrets:
+      registry-auths: |
+        - registry: registry-1-stage.docker.io
+          username: ${{ vars.DOCKERHUB_STAGE_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_STAGE_TOKEN }}
+          scope: '@push'
+
+  bake-auth-scope-verify:
+    uses: ./.github/workflows/verify.yml
+    if: ${{ github.event_name != 'pull_request' }}
+    needs:
+      - bake-auth-scope
+    with:
+      builder-outputs: ${{ toJSON(needs.bake-auth-scope.outputs) }}
+    secrets:
+      registry-auths: |
+        - registry: registry-1-stage.docker.io
+          username: ${{ vars.DOCKERHUB_STAGE_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_STAGE_TOKEN }}

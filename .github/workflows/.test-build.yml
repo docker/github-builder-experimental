@@ -542,3 +542,37 @@ jobs:
       platforms: linux/amd64,linux/arm64
       sbom: true
       sign: ${{ github.event_name != 'pull_request' }}
+
+  build-auth-scope:
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      file: test/hello.Dockerfile
+      output: image
+      platforms: linux/amd64,linux/arm64
+      push: ${{ github.event_name != 'pull_request' }}
+      sbom: true
+      meta-images: registry-1-stage.docker.io/docker/github-builder-test
+      meta-tags: |
+        type=raw,value=build-scope-${{ github.run_id }}
+    secrets:
+      registry-auths: |
+        - registry: registry-1-stage.docker.io
+          username: ${{ vars.DOCKERHUB_STAGE_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_STAGE_TOKEN }}
+          scope: '@push'
+
+  build-auth-scope-verify:
+    uses: ./.github/workflows/verify.yml
+    if: ${{ github.event_name != 'pull_request' }}
+    needs:
+      - build-auth-scope
+    with:
+      builder-outputs: ${{ toJSON(needs.build-auth-scope.outputs) }}
+    secrets:
+      registry-auths: |
+        - registry: registry-1-stage.docker.io
+          username: ${{ vars.DOCKERHUB_STAGE_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_STAGE_TOKEN }}

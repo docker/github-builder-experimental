@@ -545,7 +545,7 @@ jobs:
       -
         name: Login to registry
         if: ${{ inputs.push && inputs.output == 'image' }}
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry-auth: ${{ secrets.registry-auths }}
       -
@@ -571,6 +571,14 @@ jobs:
         env:
           BUILDKIT_MULTI_PLATFORM: 1
           GIT_AUTH_TOKEN: ${{ secrets.github-token || github.token }}
+      -
+        name: Login to registry for signing
+        if: ${{ needs.prepare.outputs.sign == 'true' && inputs.output == 'image' }}
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry-auth: ${{ secrets.registry-auths }}
+        env:
+          DOCKER_LOGIN_SCOPE_DISABLED: true # make sure the scope feature is disabled to avoid interfering with cosign OIDC login
       -
         name: Signing attestation manifests
         id: signing-attestation-manifests
@@ -719,9 +727,11 @@ jobs:
       -
         name: Login to registry
         if: ${{ inputs.push && inputs.output == 'image' }}
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry-auth: ${{ secrets.registry-auths }}
+        env:
+          DOCKER_LOGIN_SCOPE_DISABLED: true # FIXME: scope feature is not yet supported by Buildx imagetools command
       -
         name: Set up Docker Buildx
         if: ${{ inputs.push && inputs.output == 'image' }}
