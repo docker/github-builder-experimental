@@ -152,7 +152,7 @@ jobs:
     outputs:
       includes: ${{ steps.set.outputs.includes }}
       sign: ${{ steps.set.outputs.sign }}
-      privateRepo: ${{ steps.set.outputs.privateRepo }}
+      ghaCacheSign: ${{ steps.set.outputs.ghaCacheSign }}
     steps:
       -
         name: Install @docker/actions-toolkit
@@ -163,12 +163,16 @@ jobs:
           script: |
             await exec.exec('npm', ['install', '--prefer-offline', '--ignore-scripts', core.getInput('dat-module')]);
       -
+        name: Expose GitHub Runtime
+        uses: crazy-max/ghaction-github-runtime@3cb05d89e1f492524af3d41a1c98c83bc3025124 # v3.1.0
+      -
         name: Set outputs
         id: set
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_SBOM-IMAGE: ${{ env.SBOM_IMAGE }}
           INPUT_MATRIX-SIZE-LIMIT: ${{ env.MATRIX_SIZE_LIMIT }}
+          INPUT_ACTIONS-ID-TOKEN-SET:  ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN != '' && env.ACTIONS_ID_TOKEN_REQUEST_URL != '' }}
           INPUT_RUNNER: ${{ inputs.runner }}
           INPUT_ARTIFACT-UPLOAD: ${{ inputs.artifact-upload }}
           INPUT_CONTEXT: ${{ inputs.context }}
@@ -189,6 +193,7 @@ jobs:
 
             const inpSbomImage = core.getInput('sbom-image');
             const inpMatrixSizeLimit = parseInt(core.getInput('matrix-size-limit'), 10);
+            const inpActionsIdTokenSet = core.getBooleanInput('actions-id-token-set');
             
             const inpRunner = core.getInput('runner');
             const inpArtifactUpload = core.getBooleanInput('artifact-upload');
@@ -294,6 +299,11 @@ jobs:
               core.info(`sign: ${sign}`);
               core.setOutput('sign', sign);
             });
+            await core.group(`Set ghaCacheSign output`, async () => {
+              const ghaCacheSign = inpActionsIdTokenSet ? 'true' : 'false';
+              core.info(`ghaCacheSign: ${ghaCacheSign}`);
+              core.setOutput('ghaCacheSign', ghaCacheSign);
+            });
 
   build:
     runs-on: ${{ matrix.runner }}
@@ -373,9 +383,9 @@ jobs:
             [cache]
               [cache.gha]
                 [cache.gha.sign]
-                  command = ["ghacache-sign-script.sh"]
+                  command = [${{ needs.prepare.outputs.ghaCacheSign == 'true' && '"ghacache-sign-script.sh"' || '' }}]
                 [cache.gha.verify]
-                  required = true
+                  required = ${{ needs.prepare.outputs.ghaCacheSign }}
                   [cache.gha.verify.policy]
                     timestampThreshold = 1
                     tlogThreshold = ${{ needs.prepare.outputs.privateRepo == 'true' && '0' || '1' }}
