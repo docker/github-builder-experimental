@@ -498,7 +498,7 @@ jobs:
             
             if (inpCache) {
               core.setOutput('cache-from', `type=gha,scope=${inpCacheScope || inpTarget || 'buildkit'}${platformPairSuffix}`);
-              core.setOutput('cache-to', `type=gha,scope=${inpCacheScope || inpTarget || 'buildkit'}${platformPairSuffix},mode=${inpCacheMode}`);
+              core.setOutput('cache-to', `type=gha,ignore-error=true,scope=${inpCacheScope || inpTarget || 'buildkit'}${platformPairSuffix},mode=${inpCacheMode}`);
             }
             
             if (inpSetMetaAnnotations && inpMetaAnnotations.length > 0) {

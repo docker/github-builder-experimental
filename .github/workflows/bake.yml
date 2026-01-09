@@ -608,7 +608,7 @@ jobs:
               }
               if (inpCache) {
                 bakeOverrides.push(`*.cache-from=type=gha,scope=${inpCacheScope || target}${platformPairSuffix}`);
-                bakeOverrides.push(`*.cache-to=type=gha,scope=${inpCacheScope || target}${platformPairSuffix},mode=${inpCacheMode}`);
+                bakeOverrides.push(`*.cache-to=type=gha,ignore-error=true,scope=${inpCacheScope || target}${platformPairSuffix},mode=${inpCacheMode}`);
               }
               core.info(JSON.stringify(bakeOverrides, null, 2));
               core.setOutput('overrides', bakeOverrides.join(os.EOL));
