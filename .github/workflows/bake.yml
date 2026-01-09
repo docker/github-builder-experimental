@@ -137,7 +137,7 @@ on:
         value: ${{ jobs.finalize.outputs.signed }}
 
 env:
-  BUILDX_VERSION: "v0.30.1"
+  BUILDX_VERSION: "https://github.com/docker/buildx.git#8037f199dbf353dd0bc51b6d4f4cec64544dbcdd" # TODO: pin to a specific version when scope feature is available
   BUILDKIT_IMAGE: "moby/buildkit:master@sha256:bdefeba47634c596286beabe68219708ed364c4f1a5e4e9a2e160274712a0e89" # TODO: pin to a specific version when signed gha cache feature is available
   SBOM_IMAGE: "docker/buildkit-syft-scanner:1.9.0"
   DOCKER_ACTIONS_TOOLKIT_MODULE: "@docker/actions-toolkit@0.72.0"
@@ -361,7 +361,6 @@ jobs:
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
         with:
           version: ${{ env.BUILDX_VERSION }}
-          cache-binary: false
           buildkitd-flags: --debug
           driver-opts: |
             image=${{ env.BUILDKIT_IMAGE }}
@@ -614,7 +613,7 @@ jobs:
       -
         name: Login to registry
         if: ${{ inputs.push && inputs.output == 'image' }}
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        uses: docker/login-action@scope # TODO: pin to a specific version when scope feature is supported
         with:
           registry-auth: ${{ secrets.registry-auths }}
       -
@@ -645,6 +644,14 @@ jobs:
             const imageDigest = inpMetadata[inpTarget]['containerimage.digest'];
             core.info(imageDigest);
             core.setOutput('digest', imageDigest);
+      -
+        name: Login to registry for signing
+        if: ${{ needs.prepare.outputs.sign == 'true' && inputs.output == 'image' }}
+        uses: docker/login-action@scope # TODO: pin to a specific version when scope feature is supported
+        with:
+          registry-auth: ${{ secrets.registry-auths }}
+        env:
+          DOCKER_LOGIN_SCOPE_DISABLED: true # make sure the scope feature is disabled to avoid interfering with cosign OIDC login
       -
         name: Signing attestation manifests
         id: signing-attestation-manifests
@@ -795,9 +802,11 @@ jobs:
       -
         name: Login to registry
         if: ${{ inputs.push && inputs.output == 'image' }}
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        uses: docker/login-action@scope # TODO: pin to a specific version when scope feature is supported
         with:
           registry-auth: ${{ secrets.registry-auths }}
+        env:
+          DOCKER_LOGIN_SCOPE_DISABLED: true # FIXME: scope feature is not yet supported by Buildx imagetools command
       -
         name: Set up Docker Buildx
         if: ${{ inputs.push && inputs.output == 'image' }}
@@ -806,7 +815,6 @@ jobs:
           version: ${{ env.BUILDX_VERSION }}
           buildkitd-flags: --debug
           driver-opts: image=${{ env.BUILDKIT_IMAGE }}
-          cache-binary: false
       -
         name: Create manifest
         if: ${{ inputs.output == 'image' }}
