@@ -490,3 +490,16 @@ jobs:
       meta-images: ghcr.io/docker/github-builder-test
       meta-tags: |
         type=raw,value=build-${{ github.run_id }}
+
+  build-qemu:
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      setup-qemu: true
+      artifact-upload: false
+      file: test/hello.Dockerfile
+      output: local
+      platforms: linux/amd64,linux/arm64
+      sbom: true

@@ -147,6 +147,7 @@ env:
   BUILDX_VERSION: "v0.30.1"
   BUILDKIT_IMAGE: "moby/buildkit:master@sha256:bdefeba47634c596286beabe68219708ed364c4f1a5e4e9a2e160274712a0e89" # TODO: pin to a specific version when signed gha cache feature is available
   SBOM_IMAGE: "docker/buildkit-syft-scanner:1.9.0"
+  BINFMT_IMAGE: "tonistiigi/binfmt:qemu-v10.0.4-56"
   DOCKER_ACTIONS_TOOLKIT_MODULE: "@docker/actions-toolkit@0.72.0"
   COSIGN_VERSION: "v3.0.2"
   LOCAL_EXPORT_DIR: "/tmp/buildx-output"
@@ -310,6 +311,7 @@ jobs:
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
         if: ${{ inputs.setup-qemu }}
         with:
+          image: ${{ env.BINFMT_IMAGE }}
           cache-image: false
       -
         name: Expose GitHub Runtime

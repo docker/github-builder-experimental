@@ -395,3 +395,16 @@ jobs:
         public.ecr.aws/q3b5f1u4/test-docker-action
       meta-tags: |
         type=raw,value=bake-ghbuilder-${{ github.run_id }}
+
+  bake-qemu:
+    uses: ./.github/workflows/bake.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      setup-qemu: true
+      artifact-upload: false
+      context: test
+      output: local
+      sbom: true
+      target: hello-cross
