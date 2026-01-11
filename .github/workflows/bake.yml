@@ -390,7 +390,7 @@ jobs:
                     timestampThreshold = 1
                     tlogThreshold = ${{ needs.prepare.outputs.privateRepo == 'true' && '0' || '1' }}
                     subjectAlternativeName = "https://github.com/docker/github-builder-experimental/.github/workflows/bake.yml*"
-                    githubWorkflowRepository = "docker/github-builder-experimental"
+                    githubWorkflowRepository = "${{ github.repository }}"
                     issuer = "https://token.actions.githubusercontent.com"
                     runnerEnvironment = "github-hosted"
                     sourceRepositoryURI = "${{ github.server_url }}/${{ github.repository }}"
