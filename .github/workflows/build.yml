@@ -148,7 +148,7 @@ env:
   BUILDKIT_IMAGE: "moby/buildkit:master@sha256:bdefeba47634c596286beabe68219708ed364c4f1a5e4e9a2e160274712a0e89" # TODO: pin to a specific version when signed gha cache feature is available
   SBOM_IMAGE: "docker/buildkit-syft-scanner:1.9.0"
   BINFMT_IMAGE: "tonistiigi/binfmt:qemu-v10.0.4-56"
-  DOCKER_ACTIONS_TOOLKIT_MODULE: "@docker/actions-toolkit@0.73.0"
+  DOCKER_ACTIONS_TOOLKIT_MODULE: "@docker/actions-toolkit@0.74.0"
   COSIGN_VERSION: "v3.0.2"
   LOCAL_EXPORT_DIR: "/tmp/buildx-output"
   MATRIX_SIZE_LIMIT: "20"
@@ -593,7 +593,8 @@ jobs:
             });
             
             const verifyResults = await sigstore.verifySignedManifests(signResults, {
-              certificateIdentityRegexp: `^https://github.com/docker/github-builder-experimental/.github/workflows/build.yml.*$`
+              certificateIdentityRegexp: `^https://github.com/docker/github-builder-experimental/.github/workflows/build.yml.*$`,
+              retryOnManifestUnknown: true
             });
             
             await core.group(`Verify commands`, async () => {
