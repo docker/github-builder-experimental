@@ -138,10 +138,10 @@ on:
 
 env:
   BUILDX_VERSION: "v0.30.1"
-  BUILDKIT_IMAGE: "moby/buildkit:master@sha256:bdefeba47634c596286beabe68219708ed364c4f1a5e4e9a2e160274712a0e89" # TODO: pin to a specific version when signed gha cache feature is available
+  BUILDKIT_IMAGE: "moby/buildkit:master@sha256:84014da3581b2ff2c14cb4f60029cf9caa272b79e58f2e89c651ea6966d7a505" # TODO: pin to a specific version when signed gha cache feature is available
   SBOM_IMAGE: "docker/buildkit-syft-scanner:1.9.0"
   BINFMT_IMAGE: "tonistiigi/binfmt:qemu-v10.0.4-56"
-  DOCKER_ACTIONS_TOOLKIT_MODULE: "@docker/actions-toolkit@0.73.0"
+  DOCKER_ACTIONS_TOOLKIT_MODULE: "@docker/actions-toolkit@0.74.0"
   COSIGN_VERSION: "v3.0.2"
   LOCAL_EXPORT_DIR: "/tmp/buildx-output"
   MATRIX_SIZE_LIMIT: "20"
@@ -162,6 +162,62 @@ jobs:
         with:
           script: |
             await exec.exec('npm', ['install', '--prefer-offline', '--ignore-scripts', core.getInput('dat-module')]);
+      -
+        name: Install Cosign
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          INPUT_COSIGN-VERSION: ${{ env.COSIGN_VERSION }}
+        with:
+          script: |
+            const { Cosign } = require('@docker/actions-toolkit/lib/cosign/cosign');
+            const { Install } = require('@docker/actions-toolkit/lib/cosign/install');
+
+            const inpCosignVersion = core.getInput('cosign-version');
+
+            const cosignInstall = new Install();
+            const cosignBinPath = await cosignInstall.download({
+              version: core.getInput('cosign-version'),
+              ghaNoCache: true,
+              skipState: true,
+              verifySignature: true
+            });
+            const cosignPath = await cosignInstall.install(cosignBinPath);
+
+            const cosign = new Cosign();
+            await cosign.printVersion();
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          version: ${{ env.BUILDX_VERSION }}
+          cache-binary: false
+          buildkitd-flags: --debug
+      -
+        name: Check dependencies signatures
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          INPUT_IMAGES: |
+            ${{ env.BUILDKIT_IMAGE }}
+            ${{ env.SBOM_IMAGE }}
+            ${{ env.BINFMT_IMAGE }}
+        with:
+          script: |
+            const { Sigstore } = require('@docker/actions-toolkit/lib/sigstore/sigstore');
+
+            const sigstore = new Sigstore();
+            
+            for (const image of core.getMultilineInput('images')) {
+              await core.group(`Verifying ${image}`, async () => {
+                try {
+                  await sigstore.verifyImageAttestations(image, {
+                    certificateIdentityRegexp: `^https://github.com/docker/github-builder(-experimental)?/.github/workflows/bake.yml.*$`
+                  });
+                } catch (error) {
+                  core.setFailed(error);
+                  return;
+                }
+              });
+            }
       -
         name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@3cb05d89e1f492524af3d41a1c98c83bc3025124 # v3.1.0
@@ -691,7 +747,8 @@ jobs:
             });
             
             const verifyResults = await sigstore.verifySignedManifests(signResults, {
-              certificateIdentityRegexp: `^https://github.com/docker/github-builder-experimental/.github/workflows/bake.yml.*$`
+              certificateIdentityRegexp: `^https://github.com/docker/github-builder-experimental/.github/workflows/bake.yml.*$`,
+              retryOnManifestUnknown: true
             });
             
             await core.group(`Verify commands`, async () => {
