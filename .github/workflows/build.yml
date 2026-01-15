@@ -8,6 +8,11 @@ on:
         description: "Ubuntu GitHub Hosted Runner to build on (one of auto, amd64, arm64). The auto runner selects the best-matching runner based on target platforms. You can set it to amd64 if your build doesn't require emulation (e.g. cross-compilation)"
         required: false
         default: 'auto'
+      distribute:
+        type: boolean
+        description: "Whether to distribute the build across multiple runners (one platform per runner)"
+        required: false
+        default: true
       setup-qemu:
         type: boolean
         description: "Runs the setup-qemu-action step to install QEMU static binaries"
@@ -181,6 +186,7 @@ jobs:
           INPUT_MATRIX-SIZE-LIMIT: ${{ env.MATRIX_SIZE_LIMIT }}
           INPUT_ACTIONS-ID-TOKEN-SET:  ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN != '' && env.ACTIONS_ID_TOKEN_REQUEST_URL != '' }}
           INPUT_RUNNER: ${{ inputs.runner }}
+          INPUT_DISTRIBUTE: ${{ inputs.distribute }}
           INPUT_ARTIFACT-UPLOAD: ${{ inputs.artifact-upload }}
           INPUT_OUTPUT: ${{ inputs.output }}
           INPUT_PLATFORMS: ${{ inputs.platforms }}
@@ -195,6 +201,7 @@ jobs:
             const inpActionsIdTokenSet = core.getBooleanInput('actions-id-token-set');
             
             const inpRunner = core.getInput('runner');
+            const inpDistribute = core.getBooleanInput('distribute');
             const inpArtifactUpload = core.getBooleanInput('artifact-upload');
             const inpPlatforms = Util.getInputList('platforms');
             const inpOutput = core.getInput('output');
@@ -226,7 +233,7 @@ jobs:
               return;
             }
             
-            if (inpPlatforms.length > inpMatrixSizeLimit) {
+            if (inpDistribute && inpPlatforms.length > inpMatrixSizeLimit) {
               core.setFailed(`Platforms to build exceed matrix size limit of ${inpMatrixSizeLimit}`);
               return;
             }
@@ -239,7 +246,7 @@ jobs:
             
             await core.group(`Set includes output`, async () => {
               let includes = [];
-              if (inpPlatforms.length === 0) {
+              if (!inpDistribute || inpPlatforms.length === 0) {
                 includes.push({
                   index: 0,
                   runner: runner === 'auto' ? 'ubuntu-24.04' : runner
@@ -438,6 +445,7 @@ jobs:
           INPUT_PLATFORM: ${{ matrix.platform }}
           INPUT_SBOM-IMAGE: ${{ env.SBOM_IMAGE }}
           INPUT_LOCAL-EXPORT-DIR: ${{ env.LOCAL_EXPORT_DIR }}
+          INPUT_DISTRIBUTE: ${{ inputs.distribute }}
           INPUT_ANNOTATIONS: ${{ inputs.annotations }}
           INPUT_CACHE: ${{ inputs.cache }}
           INPUT_CACHE-SCOPE: ${{ inputs.cache-scope }}
@@ -445,6 +453,7 @@ jobs:
           INPUT_LABELS: ${{ inputs.labels }}
           INPUT_CONTEXT: ${{ inputs.context }}
           INPUT_OUTPUT: ${{ inputs.output }}
+          INPUT_PLATFORMS: ${{ inputs.platforms }}
           INPUT_PUSH: ${{ inputs.push }}
           INPUT_SBOM: ${{ inputs.sbom }}
           INPUT_TARGET: ${{ inputs.target }}
@@ -463,6 +472,7 @@ jobs:
             
             const inpSbomImage = core.getInput('sbom-image');
             const inpLocalExportDir = core.getInput('local-export-dir');
+            const inpDistribute = core.getBooleanInput('distribute');
             
             const inpAnnotations = core.getMultilineInput('annotations');
             const inpCache = core.getBooleanInput('cache');
@@ -471,6 +481,7 @@ jobs:
             const inpContext = core.getInput('context');
             const inpLabels = core.getMultilineInput('labels');
             const inpOutput = core.getInput('output');
+            const inpPlatforms = core.getInput('platforms');
             const inpPush = core.getBooleanInput('push');
             const inpSbom = core.getBooleanInput('sbom');
             const inpTarget = core.getInput('target');
@@ -502,6 +513,8 @@ jobs:
             
             if (inpPlatform) {
               core.setOutput('platform', inpPlatform);
+            } else if (!inpDistribute && inpPlatforms) {
+              core.setOutput('platform', inpPlatforms);
             }
             
             core.setOutput('sbom', inpSbom ? `generator=${inpSbomImage}` : 'false');

@@ -408,3 +408,42 @@ jobs:
       output: local
       sbom: true
       target: hello-cross
+
+  bake-aws-nodistrib:
+    uses: ./.github/workflows/bake.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      distribute: false
+      cache: true
+      cache-scope: bake-aws-nodistrib
+      context: test
+      output: image
+      push: ${{ github.event_name != 'pull_request' }}
+      sbom: true
+      target: hello-cross
+      meta-images: |
+        public.ecr.aws/q3b5f1u4/test-docker-action
+      meta-tags: |
+        type=raw,value=bake-ghbuilder-nodistrib-${{ github.run_id }}
+    secrets:
+      registry-auths: |
+        - registry: public.ecr.aws
+          username: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  bake-local-nodistrib:
+    uses: ./.github/workflows/bake.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      distribute: false
+      artifact-name: bake-nodistrib-output
+      artifact-upload: true
+      context: test
+      output: local
+      sbom: true
+      sign: ${{ github.event_name != 'pull_request' }}
+      target: hello-cross

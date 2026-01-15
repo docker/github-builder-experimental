@@ -8,6 +8,11 @@ on:
         description: "Ubuntu GitHub Hosted Runner to build on (one of auto, amd64, arm64). The auto runner selects the best-matching runner based on target platforms. You can set it to amd64 if your build doesn't require emulation (e.g. cross-compilation)"
         required: false
         default: 'auto'
+      distribute:
+        type: boolean
+        description: "Whether to distribute the build across multiple runners (one platform per runner)"
+        required: false
+        default: true
       setup-qemu:
         type: boolean
         description: "Runs the setup-qemu-action step to install QEMU static binaries"
@@ -174,6 +179,7 @@ jobs:
           INPUT_MATRIX-SIZE-LIMIT: ${{ env.MATRIX_SIZE_LIMIT }}
           INPUT_ACTIONS-ID-TOKEN-SET:  ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN != '' && env.ACTIONS_ID_TOKEN_REQUEST_URL != '' }}
           INPUT_RUNNER: ${{ inputs.runner }}
+          INPUT_DISTRIBUTE: ${{ inputs.distribute }}
           INPUT_ARTIFACT-UPLOAD: ${{ inputs.artifact-upload }}
           INPUT_CONTEXT: ${{ inputs.context }}
           INPUT_FILES: ${{ inputs.files }}
@@ -196,6 +202,7 @@ jobs:
             const inpActionsIdTokenSet = core.getBooleanInput('actions-id-token-set');
             
             const inpRunner = core.getInput('runner');
+            const inpDistribute = core.getBooleanInput('distribute');
             const inpArtifactUpload = core.getBooleanInput('artifact-upload');
             const inpContext = core.getInput('context');
             const inpFiles = Util.getInputList('files');
@@ -265,7 +272,7 @@ jobs:
             }
             
             const platforms = def.target[target].platforms || [];
-            if (platforms.length > inpMatrixSizeLimit) {
+            if (inpDistribute && platforms.length > inpMatrixSizeLimit) {
               core.setFailed(`Platforms to build exceed matrix size limit of ${inpMatrixSizeLimit}`);
               return;
             }
@@ -278,7 +285,7 @@ jobs:
             
             await core.group(`Set includes output`, async () => {
               let includes = [];
-              if (platforms.length === 0) {
+              if (!inpDistribute || platforms.length === 0) {
                 includes.push({
                   index: 0,
                   runner: runner === 'auto' ? 'ubuntu-24.04' : runner

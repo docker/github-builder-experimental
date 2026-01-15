@@ -503,3 +503,42 @@ jobs:
       output: local
       platforms: linux/amd64,linux/arm64
       sbom: true
+
+  build-aws-nodistrib:
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      distribute: false
+      cache: true
+      cache-scope: build-aws-nodistrib
+      file: test/hello.Dockerfile
+      output: image
+      platforms: linux/amd64,linux/arm64
+      push: ${{ github.event_name != 'pull_request' }}
+      sbom: true
+      meta-images: |
+        public.ecr.aws/q3b5f1u4/test-docker-action
+      meta-tags: |
+        type=raw,value=build-ghbuilder-nodistrib-${{ github.run_id }}
+    secrets:
+      registry-auths: |
+        - registry: public.ecr.aws
+          username: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  build-local-nodistrib:
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      distribute: false
+      artifact-name: build-nodistrib-output
+      artifact-upload: true
+      file: test/hello.Dockerfile
+      output: local
+      platforms: linux/amd64,linux/arm64
+      sbom: true
+      sign: ${{ github.event_name != 'pull_request' }}
