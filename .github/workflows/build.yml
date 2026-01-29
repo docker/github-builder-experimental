@@ -152,7 +152,7 @@ env:
   BUILDX_VERSION: "v0.31.1"
   BUILDKIT_IMAGE: "moby/buildkit:v0.27.1"
   SBOM_IMAGE: "docker/buildkit-syft-scanner:1.10.0"
-  BINFMT_IMAGE: "tonistiigi/binfmt:qemu-v10.0.4-56"
+  BINFMT_IMAGE: "tonistiigi/binfmt:qemu-v10.0.4-59"
   DOCKER_ACTIONS_TOOLKIT_MODULE: "@docker/actions-toolkit@0.76.0"
   COSIGN_VERSION: "v3.0.2"
   LOCAL_EXPORT_DIR: "/tmp/buildx-output"
