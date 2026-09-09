@@ -17,7 +17,7 @@ on:
         required: false
 
 env:
-  RUNTIME_MODULE: "@docker/github-builder-runtime@0.97.0"
+  RUNTIME_MODULE: "@docker/github-builder-runtime@0.98.0"
   RUNTIME_INSTALL_ARGS: |
     --loglevel=error
     --no-save
