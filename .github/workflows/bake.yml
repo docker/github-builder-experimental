@@ -174,7 +174,7 @@ env:
   BUILDKIT_IMAGE: "moby/buildkit:v0.33.0"
   SBOM_IMAGE: "docker/buildkit-syft-scanner:1.12.0"
   BINFMT_IMAGE: "tonistiigi/binfmt:qemu-v10.2.3-68"
-  RUNTIME_MODULE: "@docker/github-builder-runtime@0.97.0"
+  RUNTIME_MODULE: "@docker/github-builder-runtime@0.98.0"
   RUNTIME_INSTALL_ARGS: |
     --loglevel=error
     --no-save
